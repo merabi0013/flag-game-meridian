@@ -159,7 +159,7 @@ Everything the app needs to run correctly under a subpath is driven by
 one build-time value, `VITE_BASE_PATH` (read in `vite.config.js`):
 
 - Asset URLs, the manifest, and the GitHub Pages 404-redirect fallback
-  (`public/404.html` + the matching decoder in `index.html`) all resolve
+  (`spa-404.html`, emitted as `dist/404.html` by `vite.config.js` with the base baked in, + the matching decoder in `index.html`) all resolve
   against it via Vite's `%BASE_URL%`/`import.meta.env.BASE_URL`, rather
   than assuming the app is hosted at `/`.
 - React Router's `<BrowserRouter basename>` (`src/App.jsx`) is set from
@@ -262,7 +262,7 @@ frontend's `VITE_API_BASE`.
   elsewhere doesn't loosen that — you're expected to set `CLIENT_URL` to
   the real deployed frontend origin, not `*`.
 - The GitHub Pages 404 fallback only ever re-encodes and restores a
-  same-origin path (see `public/404.html`); it does not introduce an
+  same-origin path (see `spa-404.html`); it does not introduce an
   open redirect, and it's inert (no-op) on a normal page load.
 
 ## Support / donation link

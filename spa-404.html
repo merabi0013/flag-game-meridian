@@ -16,23 +16,19 @@
     a fraction of a second, if at all, and the address bar ends up
     showing the original URL.
 
-    This file makes NO assumption about the repo name or how many path
-    segments form the GitHub Pages base — it only needs to know how many
-    of those segments to preserve, which is derived below the same way
-    at both ends (see pathSegmentsToKeep).
+    This file is a TEMPLATE, not a static asset: vite.config.js emits it
+    into dist/ as 404.html at build time with __BASE_SEGMENTS__ replaced by
+    the number of path segments in the configured base (1 for
+    "/flag-game-meridian/", 0 for "/"). It must NOT live in public/,
+    because files there are copied verbatim and can't learn the base path
+    (that's what previously sent "Play Again" to "/?/flag-game-meridian/...").
   -->
   <script>
     (function () {
       // Number of leading path segments that belong to the deployment's
-      // base path rather than to the app's own routes. A GitHub Pages
-      // project site (https://<user>.github.io/<repo>/...) has exactly
-      // one such segment (<repo>); a user/org root site
-      // (https://<user>.github.io/...) or a custom domain has zero.
-      // This is derived from <base href> at build time (Vite writes the
-      // configured `base` there), so it never needs to be hardcoded to a
-      // particular repo name.
-      var baseHref = document.querySelector('base') ? document.querySelector('base').getAttribute('href') : '/';
-      var pathSegmentsToKeep = baseHref.replace(/^\/|\/$/g, '').split('/').filter(Boolean).length;
+      // base path rather than to the app's own routes (injected at build
+      // time from Vite's `base`).
+      var pathSegmentsToKeep = __BASE_SEGMENTS__;
 
       var l = window.location;
       var segments = l.pathname.split('/').slice(1);

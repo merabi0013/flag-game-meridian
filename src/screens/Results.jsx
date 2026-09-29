@@ -43,6 +43,12 @@ export default function Results({ result, onPlayAgain, syncNote }) {
         </div>
       </div>
 
+      {result.skipped > 0 && (
+        <p className="summary-sub">
+          Skipped {result.skipped} {result.skipped === 1 ? 'time' : 'times'} (skipped flags come back later, so they don't count against you).
+        </p>
+      )}
+
       <MissedFlagsList missed={result.missed} getCountry={getCountryById} />
 
       <div className="summary-actions">

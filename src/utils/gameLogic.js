@@ -54,6 +54,8 @@ export function createInitialState(config) {
     score: 0,
     correct: 0,
     incorrect: 0,
+    skipped: 0, // number of times the player deferred a flag (informational only)
+    carriedHints: {}, // countryId -> hints already used before that flag was deferred
     streak: 0,
     bestStreak: 0,
     hintsUsedThisQuestion: 0,
@@ -95,6 +97,7 @@ function buildResult(state, reason) {
     score: state.score,
     correct: state.correct,
     incorrect: state.incorrect,
+    skipped: state.skipped || 0,
     totalQuestions: state.questions.length,
     bestStreak: state.bestStreak,
     timedOut: reason === 'timeout',
@@ -171,18 +174,28 @@ export function gameReducer(state, action) {
     }
 
     case 'SKIP': {
+      // Skip DEFERS the current flag: it moves to the end of the queue and
+      // the next flag takes its place at the same position. Nothing is
+      // answered, so no score/streak/correct/incorrect change and `index`
+      // (which drives "Flag X of N") stays put — the player has completed
+      // exactly as many flags as before. The deferred flag comes round
+      // again once everything ahead of it has been answered.
+      if (state.answered) return state;
+      // Nothing behind the current flag to defer it past: skipping the
+      // only remaining flag would just show it again, so it's a no-op
+      // (the UI disables the button in this state too).
+      if (!canSkip(state)) return state;
       const country = currentCountry(state);
-      let next = state;
-      if (!state.answered) {
-        next = {
-          ...state,
-          answered: true,
-          incorrect: state.incorrect + 1,
-          streak: 0,
-          missed: [...state.missed, { id: country.id, name: country.name }],
-        };
-      }
-      return advance(next);
+      const questions = [
+        ...state.questions.slice(0, state.index),
+        ...state.questions.slice(state.index + 1),
+        country,
+      ];
+      const carriedHints = state.hintsUsedThisQuestion
+        ? { ...state.carriedHints, [country.id]: state.hintsUsedThisQuestion }
+        : state.carriedHints;
+      const withQueue = { ...state, questions, carriedHints, skipped: state.skipped + 1 };
+      return { ...withQueue, ...questionFieldsFor(withQueue, state.index) };
     }
 
     case 'ADVANCE':
@@ -202,11 +215,26 @@ export function gameReducer(state, action) {
   }
 }
 
+/** True while at least one flag remains after the current one, i.e.
+ * there's somewhere to defer the current flag to. */
+export function canSkip(state) {
+  return !state.ended && !state.error && !state.answered && state.index < state.questions.length - 1;
+}
+
+// Solo-only wrapper around the shared nextQuestionFields: a flag that
+// comes back after being skipped keeps the hint penalty it had already
+// incurred, so skip can't be used to reset it.
+function questionFieldsFor(state, index) {
+  const fields = nextQuestionFields(state, index);
+  fields.hintsUsedThisQuestion = state.carriedHints?.[state.questions[index].id] || 0;
+  return fields;
+}
+
 function advance(state) {
   if (!state.answered) return state;
   const nextIndex = state.index + 1;
   if (nextIndex >= state.questions.length) {
     return { ...state, ended: true, result: buildResult(state, 'completed') };
   }
-  return { ...state, ...nextQuestionFields(state, nextIndex) };
+  return { ...state, ...questionFieldsFor(state, nextIndex) };
 }

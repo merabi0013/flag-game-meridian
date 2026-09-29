@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { ALL_COUNTRIES } from '../data/countries';
 import { labelForCategory, countriesForCategory, isPaidCategory } from '../utils/categories';
 import { useGame } from '../hooks/useGame';
+import { canSkip } from '../utils/gameLogic';
 import { useAuthContext } from '../context/AuthContext';
 import { usePaidCategoryCountries } from '../hooks/usePaidCategoryCountries';
 import { useWarnBeforeUnload } from '../hooks/useWarnBeforeUnload';
+import { useEnterToAdvance } from '../hooks/useEnterToAdvance';
 import FlagDisplay from '../components/FlagDisplay';
 import ProgressBar from '../components/ProgressBar';
 import ScoreDisplay from '../components/ScoreDisplay';
@@ -74,14 +76,19 @@ export default function Game() {
 }
 
 function ModeRouter({ categoryId, paidPool, params }) {
+  // Every navigation (including "Play again" to an identical URL) gets a
+  // fresh location.key, which remounts the session and therefore starts a
+  // brand-new game — the session's state is only initialised on mount.
+  const { key } = useLocation();
   if (params.get('mode') === 'multiplayer') {
-    return <MultiplayerGameSession categoryId={categoryId} paidPool={paidPool} params={params} ErrorPanel={ErrorPanel} />;
+    return <MultiplayerGameSession key={key} categoryId={categoryId} paidPool={paidPool} params={params} ErrorPanel={ErrorPanel} />;
   }
-  return <GameSession categoryId={categoryId} paidPool={paidPool} params={params} />;
+  return <GameSession key={key} categoryId={categoryId} paidPool={paidPool} params={params} />;
 }
 
 function GameSession({ categoryId, paidPool, params }) {
   const { user } = useAuthContext();
+  const navigate = useNavigate();
 
   const config = useMemo(
     () => ({
@@ -99,6 +106,8 @@ function GameSession({ categoryId, paidPool, params }) {
 
   const { state, country, submitAnswer, useHint, skip, advance } = useGame(config, user);
   useWarnBeforeUnload(!state.ended && !state.error && state.questions?.length > 0);
+  // Enter = "Next flag", but only while that button is actually enabled.
+  useEnterToAdvance(!state.ended && !state.error && state.answered, advance);
   const [hintUsed, setHintUsed] = useState(false);
 
   const questionKey = state.questions?.[state.index]?.id;
@@ -111,13 +120,11 @@ function GameSession({ categoryId, paidPool, params }) {
       minutes: String(config.timerMinutes),
       count: String(config.questionCount),
     });
-    // A hard navigation (not react-router's navigate) is intentional here:
-    // config above is derived from the URL's query string, so reloading
-    // with a new query string is the simplest way to get a fully reset
-    // game. import.meta.env.BASE_URL (e.g. "/" or "/flag-game-meridian/")
-    // is prefixed so this still resolves correctly when the app is hosted
-    // under a subpath, e.g. on GitHub Pages.
-    window.location.href = `${import.meta.env.BASE_URL}game?${usp.toString()}`;
+    // Client-side navigation: react-router applies its basename (so this
+    // stays under /flag-game-meridian on GitHub Pages) and no server
+    // request is made. A full page load of /flag-game-meridian/game would
+    // hit GitHub Pages' 404 fallback instead of the app.
+    navigate({ pathname: '/game', search: `?${usp.toString()}` });
   }
 
   function handleHint() {
@@ -221,7 +228,7 @@ function GameSession({ categoryId, paidPool, params }) {
                     <Button variant="ghost" size="sm" disabled={state.answered || hintUsed} onClick={handleHint}>
                       💡 Hint
                     </Button>
-                    <Button variant="ghost" size="sm" disabled={state.answered} onClick={skip}>
+                    <Button variant="ghost" size="sm" disabled={!canSkip(state)} onClick={skip}>
                       Skip
                     </Button>
                   </div>

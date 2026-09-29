@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { labelForCategory, countriesForCategory } from '../utils/categories';
 import { ALL_COUNTRIES } from '../data/countries';
 import { formatDurationMs } from '../utils/ranking';
 import { useMultiplayerGame } from '../hooks/useMultiplayerGame';
 import { useWarnBeforeUnload } from '../hooks/useWarnBeforeUnload';
+import { useEnterToAdvance } from '../hooks/useEnterToAdvance';
 import { useAuthContext } from '../context/AuthContext';
 import FlagDisplay from '../components/FlagDisplay';
 import ProgressBar from '../components/ProgressBar';
@@ -32,6 +34,7 @@ function formatSeconds(sec) {
  */
 export default function MultiplayerGameSession({ categoryId, paidPool, params, ErrorPanel }) {
   const { user } = useAuthContext();
+  const navigate = useNavigate();
 
   const playerNames = useMemo(() => (params.get('players') || '').split('|').filter(Boolean), [params]);
 
@@ -53,6 +56,8 @@ export default function MultiplayerGameSession({ categoryId, paidPool, params, E
 
   const { state, country, player, submitAnswer, useHint, skip, advance } = useMultiplayerGame(config, user);
   useWarnBeforeUnload(!state.ended && !state.error && state.questions?.length > 0);
+  // Enter = "Next flag", but only while that button is actually enabled.
+  useEnterToAdvance(!state.ended && !state.error && state.answered, advance);
   const [hintUsed, setHintUsed] = useState(false);
 
   // Ticks once a second purely to force a re-render while a turn is in
@@ -84,10 +89,9 @@ export default function MultiplayerGameSession({ categoryId, paidPool, params, E
       order: state.guessingOrder || config.guessingOrder,
       players: playerNames.join('|'),
     });
-    // See the matching comment in Game.jsx: this is an intentional hard
-    // reload (config is derived from the URL), with BASE_URL prefixed so
-    // it still resolves correctly under a GitHub Pages subpath.
-    window.location.href = `${import.meta.env.BASE_URL}game?${usp.toString()}`;
+    // See the matching comment in Game.jsx: client-side navigation, so the
+    // router's basename is applied and no server request is made.
+    navigate({ pathname: '/game', search: `?${usp.toString()}` });
   }
 
   function handleHint() {

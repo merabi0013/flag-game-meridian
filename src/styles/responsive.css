@@ -1,0 +1,96 @@
+/* =========================================================================
+   Meridian — responsive breakpoints
+   Desktop-first source in main.css / game.css; overrides narrow down.
+   ========================================================================= */
+
+/* Tablet */
+@media (max-width: 900px) {
+  .setup-grid { grid-template-columns: 1fr; }
+  .hiw-grid { grid-template-columns: 1fr 1fr; }
+  .summary-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .profile-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile */
+@media (max-width: 620px) {
+  .container { padding: 0 16px; }
+  .site-nav .container { height: 60px; }
+  .nav-links { display: none; }
+  .mobile-nav-btn { display: flex; }
+  .hero { padding: 46px 0 30px; }
+  .hero h1 { font-size: 2.1rem; }
+  .hero-actions { flex-direction: column; align-items: stretch; }
+  .hero-actions .btn { width: 100%; }
+  .hero-stat-strip { gap: 18px; }
+
+  .panel { padding: 18px; border-radius: var(--radius-md); }
+  .category-grid { grid-template-columns: repeat(2, 1fr); }
+  .hiw-grid { grid-template-columns: 1fr; }
+
+  .game-topbar { flex-direction: column; align-items: flex-start; }
+  .progress-bar { width: 100%; }
+  .stat-pills { width: 100%; }
+  .stat-pill { flex: 1; min-width: 0; }
+
+  .flag-card { padding: 18px; }
+  .mc-grid { grid-template-columns: 1fr; }
+  .answer-input-row { flex-direction: column; }
+  .action-row { flex-direction: column; align-items: stretch; }
+  .action-row-left { width: 100%; }
+  .action-row-left .btn, .action-row > .btn { width: 100%; }
+
+  .summary-card { padding: 22px; }
+  .summary-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .summary-actions { flex-direction: column; }
+  .summary-actions .btn { width: 100%; }
+
+  .profile-grid { grid-template-columns: repeat(2, 1fr); }
+  .category-perf-table { font-size: 0.82rem; }
+  .guest-banner { flex-direction: column; align-items: flex-start; }
+  .recent-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .recent-list-scroll { max-height: 320px; }
+
+  .account-menu { width: 240px; max-width: calc(100vw - 32px); right: -10px; }
+
+  .admin-editor-grid { grid-template-columns: 1fr; }
+  .admin-toolbar { flex-direction: column; align-items: stretch; }
+  .admin-search { max-width: none; }
+  .admin-user-table-wrap { overflow-x: auto; }
+  .admin-editor-actions { flex-direction: column; align-items: stretch; }
+  .admin-editor-actions-left { flex-direction: column; }
+  .admin-editor-actions-left .btn, .admin-editor-actions > .btn { width: 100%; }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .category-grid { grid-template-columns: 1fr; }
+  .summary-stat-grid { grid-template-columns: 1fr 1fr; }
+  .profile-grid { grid-template-columns: 1fr; }
+  /* Brand + hamburger + avatar all compete for ~320-360px of width here;
+     drop the avatar's name label and keep just the circle so nothing
+     gets clipped or forces horizontal scroll. */
+  .avatar-btn-label { display: none; }
+  .avatar-btn { padding: 6px; }
+  .brand { font-size: 1.05rem; }
+}
+
+/* Landscape phones: viewport height is the scarce resource, not width --
+   shrink vertical padding so the flag and answer controls both stay on
+   screen without scrolling past them mid-question. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .hero { padding: 20px 0; }
+  .setup { padding: 20px 0 40px; }
+  .game-shell { padding: 12px 0 30px; }
+  .flag-card { padding: 12px; }
+  .flag-frame { padding: 3%; }
+  .panel { padding: 14px; }
+  .game-topbar { margin-bottom: 10px; }
+}
+
+/* Respect device notches / rounded corners / gesture-nav areas. Only the
+   top nav and page bottom need this -- there are no other fixed-position
+   edge elements in this layout. */
+@supports (padding: max(0px)) {
+  .site-nav { padding-top: env(safe-area-inset-top); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}

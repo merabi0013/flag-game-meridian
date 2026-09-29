@@ -1,0 +1,10 @@
+# node_modules/, .env, and OS/editor files are already covered by the
+# root .gitignore (patterns there apply recursively). This file only adds
+# what's specific to the backend: the local SQLite database file it
+# creates on first run at the path configured by DB_PATH (see .env.example).
+# The seed data files that ship WITH the project (server/data/*.json) are
+# not touched by this pattern and remain committed.
+data/*.sqlite3
+data/*.sqlite3-journal
+data/*.sqlite3-shm
+data/*.sqlite3-wal

@@ -1,0 +1,202 @@
+/* =========================================================================
+   Meridian — gameplay screen
+   ========================================================================= */
+
+.game-shell {
+  padding: 26px 0 80px;
+}
+
+.game-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.game-progress {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--parchment-dim);
+}
+.progress-bar {
+  width: 220px; height: 6px; border-radius: 999px; background: var(--ink-3);
+  overflow: hidden; margin-top: 6px; border: 1px solid var(--line);
+}
+.progress-bar-fill {
+  height: 100%; background: linear-gradient(90deg, var(--teal), var(--brass)); width: 0%;
+  transition: width 0.25s ease;
+}
+
+.stat-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-pill {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 8px 14px; min-width: 74px;
+}
+.stat-pill b { font-family: var(--font-mono); font-size: 1.05rem; color: var(--parchment); }
+.stat-pill span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--parchment-dim); }
+.stat-pill.streak b { color: var(--brass-bright); }
+.stat-pill.timer { border-color: rgba(193,87,58,0.4); }
+.stat-pill.timer.low b { color: var(--rust-bright); }
+
+.play-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 26px;
+}
+
+.flag-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 30px;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.flag-card::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: var(--radius-lg);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.18; pointer-events: none;
+}
+.flag-frame {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--ink-3);
+  display: flex; align-items: center; justify-content: center;
+  padding: 5%;
+  box-sizing: border-box;
+}
+/* Every flag must render whole, never cropped and never stretched — the
+   frame above is a fixed-ratio "window"; the flag image itself is sized
+   to fit entirely inside it (object-fit: contain), whichever dimension
+   is the binding constraint for that flag's own aspect ratio. This is
+   generic by design: a wide flag (e.g. Belarus, ~1.9:1) becomes
+   letterboxed top/bottom, a narrow one (e.g. Vatican City, 1:1) becomes
+   pillarboxed left/right, and a standard 3:2 flag fills the frame with
+   no bars at all — no per-country cases needed. */
+.flag-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 6px 22px -6px rgba(0, 0, 0, 0.55);
+  animation: reveal 0.35s ease;
+}
+@keyframes reveal { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+.flag-frame .flag-fallback {
+  display: none; text-align: center; color: var(--parchment-dim); font-size: 0.85rem; padding: 16px;
+}
+.flag-frame.broken img { display: none; }
+.flag-frame.broken .flag-fallback { display: block; }
+
+.answer-zone { margin-top: 22px; position: relative; }
+
+.answer-input-row { display: flex; gap: 10px; }
+.answer-input {
+  flex: 1;
+  background: var(--ink-3);
+  border: 1px solid var(--line-strong);
+  color: var(--parchment);
+  font-size: 1rem;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+}
+.answer-input:focus { border-color: var(--brass); }
+.answer-input.state-correct { border-color: var(--teal-bright); background: rgba(79,144,136,0.12); }
+.answer-input.state-wrong { border-color: var(--rust-bright); background: rgba(193,87,58,0.1); animation: shake 0.3s ease; }
+@keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+.autocomplete-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px);
+  background: var(--ink-2); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; z-index: 20; display: none;
+}
+.autocomplete-list.open { display: block; }
+.autocomplete-item {
+  padding: 10px 14px; font-size: 0.9rem; cursor: pointer; color: var(--parchment-dim);
+}
+.autocomplete-item:hover, .autocomplete-item.active { background: var(--ink-3); color: var(--parchment); }
+
+.mc-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.mc-option {
+  min-height: 48px; border: 1px solid var(--line-strong); background: var(--ink-3); color: var(--parchment);
+  padding: 14px 16px; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; text-align: left; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.mc-option:hover { border-color: var(--brass); }
+.mc-option.correct {
+  border-color: var(--teal-bright);
+  background: rgba(79, 144, 136, 0.22);
+  color: var(--teal-bright);
+}
+.mc-option.wrong {
+  border-color: var(--rust-bright);
+  background: rgba(193, 87, 58, 0.22);
+  color: var(--rust-bright);
+  animation: shake 0.3s ease;
+}
+.mc-option:disabled { cursor: default; opacity: 1; }
+.mc-option:disabled:not(.correct):not(.wrong) { opacity: 0.5; }
+
+.feedback-line {
+  min-height: 22px; margin-top: 12px; font-size: 0.9rem; font-weight: 600;
+}
+.feedback-line.correct { color: var(--teal-bright); }
+.feedback-line.wrong { color: var(--rust-bright); }
+.feedback-line.hint { color: var(--brass-bright); font-weight: 500; }
+
+.action-row {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 18px; gap: 10px; flex-wrap: wrap;
+}
+.action-row-left { display: flex; gap: 8px; }
+
+/* ---------- End of game summary ---------- */
+.summary-card {
+  width: 100%; max-width: 640px; background: var(--ink-2); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 34px; text-align: center; box-shadow: var(--shadow);
+}
+.summary-card .eyebrow { display: block; margin-bottom: 8px; }
+.summary-score { font-family: var(--font-display); font-size: 3rem; color: var(--brass-bright); margin: 6px 0 4px; }
+.summary-sub { color: var(--parchment-dim); margin-bottom: 24px; }
+
+.summary-stat-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+}
+.summary-stat {
+  background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 8px;
+}
+.summary-stat b { display: block; font-family: var(--font-mono); font-size: 1.2rem; }
+.summary-stat span { font-size: 0.68rem; text-transform: uppercase; color: var(--parchment-dim); letter-spacing: 0.05em; }
+
+.missed-list { text-align: left; margin-bottom: 26px; }
+.missed-list h3 { font-size: 0.92rem; margin-bottom: 10px; }
+.missed-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.missed-chip {
+  display: flex; align-items: center; gap: 8px; background: var(--ink-3); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px 5px 6px; font-size: 0.8rem;
+}
+.missed-chip img { width: 22px; height: 15px; border-radius: 3px; object-fit: cover; }
+
+.summary-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.sync-note { margin-top: 16px; font-size: 0.76rem; color: var(--parchment-dim); font-family: var(--font-mono); }
+
+/* Deliberately smaller/quieter than the Play Again / New category buttons
+   above — a plain text line, not another button, so it never competes
+   with the actual gameplay actions. */
+.results-support-note { margin-top: 14px; font-size: 0.82rem; color: var(--parchment-dim); }
+.results-support-link { color: var(--brass-bright); text-decoration: none; font-weight: 600; }
+.results-support-link:hover { text-decoration: underline; }

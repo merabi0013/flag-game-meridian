@@ -1,0 +1,89 @@
+name: Deploy frontend to GitHub Pages
+
+# Builds and publishes ONLY the static frontend (this repo's Vite app).
+# The optional accounts backend (server/) is not deployed by this
+# workflow — GitHub Pages can only serve static files, so the backend
+# needs its own separate host (Render, Railway, Fly, a VPS, etc). See
+# README "Deploying to GitHub Pages" for the full picture, including how
+# to point this frontend at that backend once it exists.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'server/**'
+      - 'README.md'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; a newer push cancels an in-flight one rather
+# than queuing behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Determine base path
+        id: base
+        # GitHub Pages serves a repo named "<user>.github.io" at the
+        # domain root ("/"), and every other repo at "/<repo-name>/". A
+        # committed public/CNAME (custom domain) also means the site is
+        # served at its own root. Neither case is hardcoded here — both
+        # are derived at build time — so forking or renaming this repo,
+        # or adding a custom domain later, never requires editing this
+        # workflow or vite.config.js.
+        run: |
+          if [ -f "public/CNAME" ]; then
+            echo "Custom domain found in public/CNAME — using root base path."
+            echo "path=/" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.repository.name }}" == *.github.io ]]; then
+            echo "User/org root Pages site — using root base path."
+            echo "path=/" >> "$GITHUB_OUTPUT"
+          else
+            echo "Project Pages site — using /${{ github.event.repository.name }}/"
+            echo "path=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        env:
+          VITE_BASE_PATH: ${{ steps.base.outputs.path }}
+          # If the accounts backend is deployed separately, set its public
+          # URL as a repository variable (Settings → Secrets and variables
+          # → Actions → Variables) named VITE_API_BASE, e.g.
+          # https://meridian-api.onrender.com. Leave it unset to ship the
+          # frontend in guest-only mode (see README).
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

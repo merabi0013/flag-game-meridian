@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt by CI on every deploy — see
+# .github/workflows/deploy-pages.yml — not committed to the repo)
+dist/
+dist-ssr/
+
+# Env files — never commit real secrets/config, only the .env.example templates
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

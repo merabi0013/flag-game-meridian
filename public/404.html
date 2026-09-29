@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Meridian</title>
+  <!--
+    GitHub Pages has no server-side rewrites, so a deep link or a page
+    refresh on a client-side route (e.g. /flag-game-meridian/game) hits
+    GitHub's static file server directly, finds no matching file, and
+    serves this 404.html. Rather than switching react-router to hash
+    routing (which changes every existing URL), this uses the standard
+    "spa-github-pages" trick: encode the real path into a query string
+    and redirect to the app's real index.html, where a matching snippet
+    (see index.html) decodes it and hands the original URL back to
+    react-router via history.replaceState — so this only ever shows for
+    a fraction of a second, if at all, and the address bar ends up
+    showing the original URL.
+
+    This file makes NO assumption about the repo name or how many path
+    segments form the GitHub Pages base — it only needs to know how many
+    of those segments to preserve, which is derived below the same way
+    at both ends (see pathSegmentsToKeep).
+  -->
+  <script>
+    (function () {
+      // Number of leading path segments that belong to the deployment's
+      // base path rather than to the app's own routes. A GitHub Pages
+      // project site (https://<user>.github.io/<repo>/...) has exactly
+      // one such segment (<repo>); a user/org root site
+      // (https://<user>.github.io/...) or a custom domain has zero.
+      // This is derived from <base href> at build time (Vite writes the
+      // configured `base` there), so it never needs to be hardcoded to a
+      // particular repo name.
+      var baseHref = document.querySelector('base') ? document.querySelector('base').getAttribute('href') : '/';
+      var pathSegmentsToKeep = baseHref.replace(/^\/|\/$/g, '').split('/').filter(Boolean).length;
+
+      var l = window.location;
+      var segments = l.pathname.split('/').slice(1);
+      var basePart = segments.slice(0, pathSegmentsToKeep);
+      var routePart = segments.slice(pathSegmentsToKeep);
+
+      var redirectUrl =
+        l.protocol +
+        '//' +
+        l.hostname +
+        (l.port ? ':' + l.port : '') +
+        (basePart.length ? '/' + basePart.join('/') : '') +
+        '/?/' +
+        routePart.join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash;
+
+      window.location.replace(redirectUrl);
+    })();
+  </script>
+</head>
+<body>
+  Redirecting…
+</body>
+</html>

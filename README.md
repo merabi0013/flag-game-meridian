@@ -5,9 +5,20 @@ length, scoring, streaks, flag rendering) rebuilt in React with a
 component-based, mobile-portable architecture. It's a **migration**, not a
 redesign — see "What changed vs. what didn't" below.
 
-The optional accounts backend (`server/`) is unchanged from the previous
-version and works exactly the same way; only how it serves the frontend
-was updated (see "Running with accounts").
+> **Backend update.** The accounts backend (`server/`) now runs on a hosted
+> **PostgreSQL** database (Neon) with server-side **Google and Discord
+> sign-in**, bearer-token sessions, explicit account linking, and a
+> **category tree** (`shared/categoryTree.json`) that drives the picker, access
+> control (free/paid) and per-category profile statistics. Start with:
+>
+> - [`docs/BACKEND.md`](docs/BACKEND.md) — architecture, database, environment
+>   variables, Google/Discord setup, local vs production callbacks, migrating the
+>   old SQLite data, deploying the backend.
+> - [`docs/CATEGORIES.md`](docs/CATEGORIES.md) — tree structure, category schema,
+>   free vs paid, how to add a category, how profile statistics are generated.
+>
+> Where older sections below still mention SQLite, Passport or session
+> cookies, those two documents are authoritative.
 
 ```
 meridian-react/
@@ -23,7 +34,7 @@ meridian-react/
 │   ├── components/               Reusable, single-responsibility UI
 │   │   ├── Header.jsx, Button.jsx, ProgressBar.jsx, ScoreDisplay.jsx
 │   │   ├── FlagDisplay.jsx, AnswerOption.jsx, AnswerInput.jsx
-│   │   ├── CategoryCard.jsx, CategoryGrid.jsx
+│   │   ├── CategoryTile.jsx, CategoryGrid.jsx (tree-driven picker)
 │   │   └── GameModeSelector.jsx, DifficultySelector.jsx, TimerToggle.jsx
 │   │   └── MissedFlagsList.jsx
 │   ├── hooks/
@@ -35,7 +46,9 @@ meridian-react/
 │   ├── utils/                          ← the portable / framework-agnostic layer
 │   │   ├── gameLogic.js                  Pure reducer: the entire game engine
 │   │   ├── countryUtils.js                Answer matching, aliases, MC options
-│   │   ├── categories.js                   Continent/region/world definitions
+│   │   ├── categories.js                   Resolves flags for a tree leaf (generic)
+│   │   ├── categoryCatalog.js              Tree + server config + ownership → picker data
+│   │   ├── categoryStats.js                Tree + recorded games → profile rows
 │   │   ├── shuffle.js                       Fisher-Yates
 │   │   └── storage.js                        Guest stats (localStorage)
 │   ├── data/
@@ -44,7 +57,9 @@ meridian-react/
 │   └── styles/
 │       ├── main.css, game.css, responsive.css   Unchanged from the previous version
 │       └── index.css                              Imports the three above
-└── server/                             Optional accounts backend (unchanged logic)
+├── shared/categoryTree.json            The category tree (read by frontend AND backend)
+├── docs/                               BACKEND.md, CATEGORIES.md
+└── server/                             Backend/API: Express + PostgreSQL (Neon)
 ```
 
 ## What changed vs. what didn't
@@ -121,27 +136,23 @@ npm run preview   # serve the build locally to sanity-check it
 
 ### With accounts (Google/Discord sign-in)
 
-Same setup as before, just from a new location:
+Needs a PostgreSQL database (a free Neon project is fine) and OAuth
+credentials. Full step-by-step instructions are in
+[`docs/BACKEND.md`](docs/BACKEND.md); the short version:
 
 ```bash
-npm run build              # build the React app first
-cd server
-npm install
-cp .env.example .env       # fill in SESSION_SECRET + OAuth credentials
-npm start
-# open http://localhost:8787 — serves the built React app AND the API
+npm install && npm --prefix server install
+cp server/.env.example server/.env    # DATABASE_URL, SESSION_SECRET, GOOGLE_*/DISCORD_*
+npm --prefix server start             # API on http://localhost:8787 (migrates + seeds first)
+
+echo "VITE_API_BASE=http://localhost:8787" > .env.local
+npm run dev                           # http://localhost:5173
 ```
 
-If you'd rather iterate on the frontend with Vite's dev server (hot
-reload) while the backend runs separately, create `.env` at the project
-root from `.env.example` and set `VITE_API_BASE=http://localhost:8787`,
-then run `npm run dev` and `cd server && npm start` side by side. See
-`server/.env.example`'s `CLIENT_URL` for the matching backend-side
-setting.
-
-Everything under "Authentication setup", "Database", "Geographic data",
-and "What's real vs. what needs your configuration" from the previous
-version's README still applies unchanged — the backend didn't change.
+Or `npm run build && npm --prefix server start` to serve the built app and the
+API together from `http://localhost:8787` (set `CLIENT_URL=http://localhost:8787`).
+Without credentials, providers simply do not appear and the app runs in guest
+mode.
 
 ## Deploying to GitHub Pages
 
@@ -242,14 +253,13 @@ guest mode exactly as it already does locally without `server/` running
   indistinguishable from "not signed in" from the frontend's point of
   view, which is the correct, safe default).
 
-Deploying `server/` itself is unchanged by this work — any Node host
-that can run an Express app and give you a persistent disk for the
-SQLite file (Render, Railway, Fly.io, a small VPS, etc.) works, following
-"With accounts" above. Once it's live, set its URL as `CLIENT_URL` in
-its own `.env` (this now also builds absolute post-login redirect URLs,
-which is what makes split-origin — Pages frontend + separately hosted
-backend — work at all; see `server/routes/auth.js`) and as the
-frontend's `VITE_API_BASE`.
+The backend is deployed **separately** from GitHub Pages, on any Node host
+(Render, Railway, Fly.io, a VPS, …). It needs no persistent disk: state is in
+the hosted PostgreSQL database. Deployment steps, the settings for Render, and
+what to configure afterwards (`API_PUBLIC_URL`, `CLIENT_URL`, the OAuth
+callbacks, the `VITE_API_BASE` repository variable) are in
+[`docs/BACKEND.md`](docs/BACKEND.md#deploying-the-backend-render-example). No
+production backend URL is committed anywhere; it is filled in after deployment.
 
 ### Security notes specific to this split
 
@@ -257,10 +267,11 @@ frontend's `VITE_API_BASE`.
   change. `VITE_API_BASE` is a public URL, not a credential, and Vite
   variables are always inlined into the built JS bundle in plain text —
   never put anything else in a `VITE_*` variable (see `.env.example`).
-- CORS (`server/index.js`) already restricts credentialed requests to a
-  single configured `CLIENT_URL` origin; deploying the frontend
-  elsewhere doesn't loosen that — you're expected to set `CLIENT_URL` to
-  the real deployed frontend origin, not `*`.
+- CORS (`server/app.js`) allows only the exact origin of `CLIENT_URL` (plus
+  any `CORS_EXTRA_ORIGINS`); there is no wildcard. The session is a bearer
+  token sent in the `Authorization` header, not a cookie, so it works across
+  `github.io` and the backend host even though browsers block third-party
+  cookies.
 - The GitHub Pages 404 fallback only ever re-encodes and restores a
   same-origin path (see `spa-404.html`); it does not introduce an
   open redirect, and it's inert (no-op) on a normal page load.
@@ -338,39 +349,29 @@ testing performed" below.
 ### How the initial administrator is granted
 
 Two independent, backend-only mechanisms (`server/lib/adminEmails.js`,
-`server/passport-config.js`):
+`server/services/accounts.js`):
 
-**Option A — direct database flag.** Open the SQLite file and set
-`is_admin = 1` for a user's row. This is the actual source of truth no
+**Option A — direct database flag.** In the Neon SQL editor (or `psql`) set
+`is_admin = true` for the user's row. This is the actual source of truth no
 matter how it got set.
 
 **Option B — bootstrap allowlist (`ADMIN_EMAILS` in `.env`).** A
 comma-separated list of emails. The first time one of those emails
 completes a real Google/Discord login, that row's `is_admin` gets set to
-`1` automatically. This is grant-only — removing an email from the list
+`true` automatically, and only when the provider reports the email as
+verified. This is grant-only — removing an email from the list
 later does **not** revoke access already granted, specifically so an
 edited/typo'd env var can't silently lock out your only admin. Revoking
-is always the deliberate Option A (flip the column back to `0`).
+is always the deliberate Option A (set the column back to `false`).
 
-### Creating the first administrator (safe local dev procedure)
+### Creating the first administrator
 
-```bash
-cd server
-npm install
-cp .env.example .env      # fill in SESSION_SECRET + your OAuth credentials
-npm start                 # log in once via Google or Discord as yourself
+Either set `ADMIN_EMAILS=you@example.com` in the backend environment *before*
+you first sign in, or sign in once and then run, in the Neon SQL editor:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 ```
-
-Then, with the server stopped (avoids a concurrent-write conflict with
-better-sqlite3's WAL mode):
-
-```bash
-sqlite3 server/data/meridian.sqlite3 \
-  "UPDATE users SET is_admin = 1 WHERE email = 'you@example.com';"
-```
-
-Or set `ADMIN_EMAILS=you@example.com` in `.env` *before* your first login
-instead, and skip the manual SQL step entirely.
 
 ### Administrative API overview
 
@@ -417,11 +418,10 @@ Google/Discord identity").
 ### Account status
 
 `users.status` is `'active'` or `'disabled'`. Disabling takes effect
-immediately and server-side: `passport-config.js`'s `deserializeUser`
-rejects a disabled user on their very next request, which — per
-Passport's own session-strategy behavior — clears that session's login
-data outright. If you re-enable the account, the user has to sign in
-again; their old session doesn't silently resume. No client action is
+immediately and server-side: the admin endpoint deletes that user's sessions
+and the authentication middleware rejects a disabled user on any request. If
+you re-enable the account, the user has to sign in again; their old session
+doesn't silently resume. No client action is
 trusted to disable/enable anything; only `PATCH /api/admin/users/:id`
 (admin-only) can change `status`.
 
@@ -459,9 +459,9 @@ timestamp — visible in the admin panel's "Recent admin activity" section
 and via `GET /api/admin/audit-log`. No secrets are ever written into a
 summary.
 
-### New environment variable
+### Environment variable
 
-Only one addition to `server/.env.example`:
+`ADMIN_EMAILS` in the backend environment (see `docs/BACKEND.md` for the full list):
 
 ```env
 ADMIN_EMAILS=
@@ -472,6 +472,12 @@ under the original README's "Environment variables" section is
 unchanged.
 
 ## Paid categories
+
+> **Superseded in part.** Free/paid is now a `type` on each category in the
+> PostgreSQL `categories` table (`paid_categories` and `premium` no longer
+> exist), edited from the admin panel or SQL, and decided by
+> `server/lib/access.js`. See [`docs/CATEGORIES.md`](docs/CATEGORIES.md#free-vs-paid).
+> The Stripe flow below is unchanged in behaviour.
 
 The first paid category, **World 1914**, sits alongside the free World
 category and is unlocked with a real one-time Stripe payment. Same rule
@@ -1131,6 +1137,12 @@ contested transitions right at the snapshot date:
 
 ### The premium/free control (Historical maps and World 1914 alike)
 
+> **Superseded.** This describes the old SQLite `paid_categories.premium`
+> column. The same behaviour (World 1914 paid, World 1991/1945 free, admin
+> control, price required for paid) is now `categories.type` — see
+> [`docs/CATEGORIES.md`](docs/CATEGORIES.md#free-vs-paid). The text below is
+> kept for history.
+
 Every category in the Historical tab — and World 1914, which predates
 it — is now backed by the exact same `paid_categories` table and
 `userHasAccess()` function documented in "Paid categories" above.
@@ -1185,6 +1197,18 @@ Multiplayer, all four difficulties, and all four game-length modes work
 identically for a Historical category as for any other — verified by
 the same SSR/logic test suite already covering those paths, since
 nothing about them needed to change.
+
+## Tests
+
+```bash
+npm test                                  # frontend unit + component tests
+npm --prefix server test                  # backend tests (in-process PostgreSQL by default)
+npm run build                             # production build
+VITE_BASE_PATH=/<repo>/ npm run build     # GitHub Pages-style build
+```
+
+What is covered is listed in [`docs/BACKEND.md`](docs/BACKEND.md#tests). The
+section below records the testing done for the original React migration.
 
 ## Testing performed for this migration
 

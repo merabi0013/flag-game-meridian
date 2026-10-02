@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 // vite.config.js). react-router's `basename` wants no trailing slash.
 const ROUTER_BASENAME = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
 import { AuthProvider } from './context/AuthContext';
+import { CatalogProvider } from './context/CatalogContext';
+import AuthCallbackHandler from './components/AuthCallbackHandler';
 import { ToastProvider } from './context/ToastContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -19,18 +21,21 @@ export default function App() {
   return (
     <BrowserRouter basename={ROUTER_BASENAME}>
       <AuthProvider>
-        <ToastProvider>
-          <Header />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/game" element={<Game />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/purchase/confirm" element={<PurchaseConfirm />} />
-            <Route path="/multiplayer/setup" element={<MultiplayerSetup />} />
-          </Routes>
-          <Footer />
-        </ToastProvider>
+        <CatalogProvider>
+          <ToastProvider>
+            <AuthCallbackHandler />
+            <Header />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/game" element={<Game />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/purchase/confirm" element={<PurchaseConfirm />} />
+              <Route path="/multiplayer/setup" element={<MultiplayerSetup />} />
+            </Routes>
+            <Footer />
+          </ToastProvider>
+        </CatalogProvider>
       </AuthProvider>
     </BrowserRouter>
   );

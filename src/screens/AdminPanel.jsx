@@ -11,8 +11,8 @@ import {
   deleteUser,
   fetchAuditLog,
   fetchAdminMultiplayerGames,
-  fetchAdminPaidCategories,
-  updateAdminPaidCategory,
+  fetchAdminCategories,
+  updateAdminCategory,
   AdminApiError,
 } from '../utils/adminApi';
 import AdminDashboard from '../components/admin/AdminDashboard';
@@ -106,7 +106,7 @@ export default function AdminPanel() {
 
   const loadGameCategories = useCallback(async () => {
     try {
-      const data = await fetchAdminPaidCategories();
+      const data = await fetchAdminCategories();
       setGameCategories(data.categories);
     } catch (err) {
       handleApiError(err);
@@ -114,7 +114,7 @@ export default function AdminPanel() {
   }, [handleApiError]);
 
   async function handleSaveGameCategory(categoryId, patch) {
-    await updateAdminPaidCategory(categoryId, patch);
+    await updateAdminCategory(categoryId, patch);
     await loadGameCategories();
   }
 
@@ -275,9 +275,8 @@ export default function AdminPanel() {
         <section className="admin-section">
           <h2>Game categories</h2>
           <p className="panel-sub">
-            Every paid or free-but-toggleable category (World 1914, Historical maps) lives here. Toggling Premium
-            or Enabled takes effect immediately for every player — see README "Historical categories" for how
-            this reuses the same entitlement system as everything else.
+            Every category in the tree. Switching a category to Paid (server-hosted categories only) or toggling
+            Enabled takes effect immediately for every player; the backend enforces it on every request.
           </p>
           <GameCategoriesList categories={gameCategories} onSave={handleSaveGameCategory} />
         </section>

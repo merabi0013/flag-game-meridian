@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { loginUrl } from '../hooks/useAuth';
+import { providerLabel } from '../utils/authMessages';
 import { IS_SUPPORT_CONFIGURED, SUPPORT_URL } from '../config/appConfig';
 import Button from './Button';
 
@@ -119,7 +120,7 @@ export default function Header() {
                 <div ref={menuRef} className={`account-menu${menuOpen ? ' open' : ''}`}>
                   {user ? (
                     <>
-                      <p>Signed in via {user.provider}</p>
+                      <p>Signed in via {(user.providers && user.providers.length ? user.providers : [user.provider]).map(providerLabel).join(' + ')}</p>
                       <Link to="/profile">
                         <Button variant="ghost" size="sm" block as="span">
                           View profile

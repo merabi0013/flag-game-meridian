@@ -13,9 +13,7 @@
  * -----------------------------------------------------------------------
  */
 const express = require('express');
-const db = require('../db');
-const { requireAuth } = require('../middleware/requireAuth');
-const { getPaidCategory, userHasAccess } = require('../lib/entitlements');
+const { requireAuth } = require('../middleware/auth');
 const { MAX_QUESTIONS_PER_GAME, MAX_SCORE_PER_QUESTION, VALID_DIFFICULTIES } = require('../lib/limits');
 
 // Keep in sync with the frontend's src/utils/playerNames.js MIN_PLAYERS.
@@ -83,57 +81,37 @@ function validateMultiplayerPayload(body) {
   return { valid: errors.length === 0, errors };
 }
 
-function buildMultiplayerRouter() {
+function buildMultiplayerRouter({ repos, access }) {
   const router = express.Router();
 
-  router.post('/api/multiplayer-games', requireAuth, (req, res) => {
-    const { valid, errors } = validateMultiplayerPayload(req.body || {});
-    if (!valid) return res.status(400).json({ error: 'Invalid multiplayer game payload', details: errors });
+  router.post('/api/multiplayer-games', requireAuth, async (req, res, next) => {
+    try {
+      const { valid, errors } = validateMultiplayerPayload(req.body || {});
+      if (!valid) return res.status(400).json({ error: 'Invalid multiplayer game payload', details: errors });
+      const b = req.body;
 
-    const b = req.body;
+      // Same rule as solo play — no multiplayer-specific bypass.
+      const category = await repos.categories.get(b.categoryId);
+      if (!category) return res.status(400).json({ error: 'Unknown category' });
+      if (!(await access.canPlay(req.user, category))) return res.status(403).json({ error: "You don't have access to this category." });
 
-    // Same entitlement rule as solo -- no multiplayer-specific bypass.
-    const paidCategory = getPaidCategory(b.categoryId);
-    if (paidCategory && !userHasAccess(req.user, b.categoryId)) {
-      return res.status(403).json({ error: "You don't own this category." });
+      await repos.multiplayer.insert(req.user.id, { ...b, categoryId: category.id });
+      res.status(201).json({ ok: true });
+    } catch (err) {
+      next(err);
     }
-
-    db.prepare(
-      `INSERT INTO multiplayer_games
-         (host_user_id, category_id, difficulty, total_questions, guessing_order, player_count, players_json, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      req.user.id,
-      b.categoryId,
-      b.difficulty,
-      b.totalQuestions,
-      b.guessingOrder,
-      b.players.length,
-      JSON.stringify(b.players),
-      b.reason || null,
-      new Date().toISOString()
-    );
-
-    res.status(201).json({ ok: true });
   });
 
-  router.get('/api/me/multiplayer-games', requireAuth, (req, res) => {
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
-    const rows = db
-      .prepare(
-        `SELECT id, category_id as categoryId, difficulty, total_questions as totalQuestions,
-                guessing_order as guessingOrder, player_count as playerCount, players_json as playersJson,
-                created_at as at
-         FROM multiplayer_games WHERE host_user_id = ? ORDER BY created_at DESC LIMIT ?`
-      )
-      .all(req.user.id, limit);
-
-    res.json({
-      games: rows.map((r) => ({ ...r, players: JSON.parse(r.playersJson), playersJson: undefined })),
-    });
+  router.get('/api/me/multiplayer-games', requireAuth, async (req, res, next) => {
+    try {
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+      res.json({ games: await repos.multiplayer.listForHost(req.user.id, limit) });
+    } catch (err) {
+      next(err);
+    }
   });
 
   return router;
 }
 
-module.exports = { buildMultiplayerRouter };
+module.exports = { buildMultiplayerRouter, validateMultiplayerPayload };

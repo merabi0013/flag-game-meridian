@@ -1,23 +1,27 @@
 {
   "name": "meridian-server",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Optional backend for Meridian: Google/Discord OAuth login + persistent player statistics. The frontend game works fully without this running (guest mode).",
+  "description": "Meridian backend/API: Google + Discord sign-in, persistent statistics, category configuration and purchases, on a hosted PostgreSQL database. The React frontend (GitHub Pages) talks only to this API, never to the database.",
   "type": "commonjs",
   "main": "index.js",
+  "engines": { "node": ">=20" },
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "migrate": "node scripts/migrate.js",
+    "import:sqlite": "node scripts/import-sqlite.js",
+    "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "express-session": "^1.18.0",
-    "passport": "^0.7.0",
-    "passport-discord": "^0.1.4",
-    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.13.0",
     "stripe": "^16.12.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "vitest": "^2.1.9"
   }
 }

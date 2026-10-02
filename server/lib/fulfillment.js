@@ -1,71 +1,56 @@
 /**
- * fulfillment.js
+ * lib/fulfillment.js
  * -----------------------------------------------------------------------
- * The one place a Stripe Checkout Session actually turns into a stored
- * transaction + a granted entitlement. Called from two places:
- *   - routes/purchase.js's GET /confirm (immediate UX after redirect back
- *     from Stripe -- works in local/sandbox dev with no public webhook
- *     endpoint reachable by Stripe)
- *   - routes/webhooks.js's checkout.session.completed handler (the
- *     reliable, production-grade path -- fires even if the user closes
- *     the tab before the redirect completes)
+ * The one place a paid Stripe Checkout Session becomes a stored transaction
+ * plus a granted entitlement. Called from the confirm redirect
+ * (routes/purchase.js) and from the webhook (routes/webhooks.js); both
+ * hand it a Session that came from Stripe's own API or a verified webhook
+ * signature, never anything the browser merely asserts.
  *
- * Both call this with a Session object that was independently retrieved
- * from Stripe's own API (confirm route) or verified via Stripe's webhook
- * signature (webhook route) -- never anything the client just asserts.
- * Idempotent by construction: the transactions.provider_session_id
- * UNIQUE constraint plus the entitlements.(user_id, category_id) UNIQUE
- * constraint mean processing the same session twice (e.g. the redirect
- * AND the webhook both firing for one purchase) has no additional
- * effect the second time.
+ * Idempotent: transactions.provider_session_id and
+ * entitlements(user_id, category_id) are UNIQUE, so processing one session
+ * twice (redirect AND webhook) changes nothing the second time.
  * -----------------------------------------------------------------------
  */
-const db = require('../db');
-const { grantEntitlement } = require('./entitlements');
-
-/** session: a Stripe Checkout Session object (from stripe.checkout.sessions.retrieve
- * or a verified webhook event's data.object). Returns { fulfilled, alreadyProcessed }. */
-function fulfillCheckoutSession(session) {
-  if (session.payment_status !== 'paid') {
-    return { fulfilled: false, reason: `payment_status is "${session.payment_status}", not "paid"` };
-  }
-
-  const userId = session.client_reference_id || (session.metadata && session.metadata.userId);
-  const categoryId = session.metadata && session.metadata.categoryId;
-  if (!userId || !categoryId) {
-    return { fulfilled: false, reason: 'Session is missing required metadata' };
-  }
-
-  const existing = db.prepare('SELECT * FROM transactions WHERE provider_session_id = ?').get(session.id);
-  if (existing && existing.status === 'completed') {
-    return { fulfilled: true, alreadyProcessed: true, userId, categoryId };
-  }
-
-  const tx = db.transaction(() => {
-    const now = new Date().toISOString();
-    if (existing) {
-      db.prepare(
-        "UPDATE transactions SET status = 'completed', completed_at = ?, provider_payment_intent_id = ? WHERE id = ?"
-      ).run(now, session.payment_intent || null, existing.id);
-    } else {
-      // Defensive fallback: normally routes/purchase.js already inserted
-      // a 'pending' row at checkout-creation time, so this branch is
-      // only hit if that insert somehow didn't happen -- still safe
-      // because provider_session_id is UNIQUE and we've already checked
-      // no completed row exists above.
-      db.prepare(
-        `INSERT INTO transactions
-           (user_id, category_id, provider, provider_session_id, provider_payment_intent_id, amount_cents, currency, status, created_at, completed_at)
-         VALUES (?, ?, 'stripe', ?, ?, ?, ?, 'completed', ?, ?)`
-      ).run(userId, categoryId, session.id, session.payment_intent || null, session.amount_total || 0, session.currency || 'usd', now, now);
+function makeFulfillment({ db, repos }) {
+  /** Returns { fulfilled, alreadyProcessed?, userId?, categoryId?, reason? }. */
+  async function fulfillCheckoutSession(session) {
+    if (session.payment_status !== 'paid') {
+      return { fulfilled: false, reason: `payment_status is "${session.payment_status}", not "paid"` };
     }
+    const userId = session.client_reference_id || (session.metadata && session.metadata.userId);
+    const categoryId = session.metadata && session.metadata.categoryId;
+    if (!userId || !categoryId) return { fulfilled: false, reason: 'Session is missing required metadata' };
 
-    const txRow = db.prepare('SELECT id FROM transactions WHERE provider_session_id = ?').get(session.id);
-    grantEntitlement({ userId, categoryId, transactionId: txRow.id });
-  });
+    return db.tx(async (q) => {
+      const existing = await repos.commerce.findBySession(session.id, q);
+      if (existing && existing.status === 'completed') {
+        return { fulfilled: true, alreadyProcessed: true, userId, categoryId };
+      }
+      let tx = existing;
+      if (existing) {
+        await repos.commerce.markCompleted(existing.id, session.payment_intent || null, q);
+      } else {
+        // Normally checkout creation already stored a 'pending' row; this is
+        // the defensive fallback if that insert never happened.
+        tx = await repos.commerce.insertCompleted(
+          {
+            userId,
+            categoryId,
+            providerSessionId: session.id,
+            paymentIntentId: session.payment_intent || null,
+            amountCents: session.amount_total || 0,
+            currency: session.currency || 'usd',
+          },
+          q
+        );
+      }
+      await repos.commerce.grant({ userId, categoryId, transactionId: tx.id }, q);
+      return { fulfilled: true, alreadyProcessed: false, userId, categoryId };
+    });
+  }
 
-  tx();
-  return { fulfilled: true, alreadyProcessed: false, userId, categoryId };
+  return { fulfillCheckoutSession };
 }
 
-module.exports = { fulfillCheckoutSession };
+module.exports = { makeFulfillment };

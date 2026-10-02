@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { loginUrl } from '../hooks/useAuth';
-import { startCheckout, PaymentApiError } from '../utils/paidCategoriesApi';
+import { startCheckout, PaymentApiError } from '../utils/categoriesApi';
 import Button from './Button';
 
 const CURRENCY_SYMBOLS = { usd: '$', eur: '\u20ac', gbp: '\u00a3' };
@@ -20,7 +20,7 @@ export default function PurchaseModal({ category, user, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await startCheckout(category.categoryId);
+      const result = await startCheckout(category.id);
       // Full page navigation on purpose -- Stripe Checkout is a hosted
       // page, not something to render inside our own app.
       window.location.href = result.url;

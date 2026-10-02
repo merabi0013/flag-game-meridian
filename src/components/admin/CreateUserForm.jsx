@@ -4,7 +4,6 @@ import Button from '../Button';
 export default function CreateUserForm({ onCreate, onCancel }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [provider, setProvider] = useState('manual');
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -17,10 +16,9 @@ export default function CreateUserForm({ onCreate, onCancel }) {
     }
     setSaving(true);
     try {
-      await onCreate({ name: name.trim(), email: email.trim() || undefined, provider });
+      await onCreate({ name: name.trim(), email: email.trim() || undefined });
       setName('');
       setEmail('');
-      setProvider('manual');
     } catch (err) {
       setError(err.message || 'Could not create user.');
     } finally {
@@ -45,14 +43,6 @@ export default function CreateUserForm({ onCreate, onCancel }) {
         <div className="admin-field">
           <label htmlFor="create-email">Email (optional)</label>
           <input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={200} />
-        </div>
-        <div className="admin-field">
-          <label htmlFor="create-provider">Labeled as</label>
-          <select id="create-provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
-            <option value="manual">Manual / imported record</option>
-            <option value="google">Google (unverified placeholder)</option>
-            <option value="discord">Discord (unverified placeholder)</option>
-          </select>
         </div>
       </div>
 

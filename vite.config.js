@@ -52,5 +52,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
     },
+    // Frontend unit tests only. The backend has its own suite in
+    // server/test (run with `npm --prefix server test`).
+    test: {
+      include: ['tests/**/*.test.{js,jsx}'],
+      exclude: ['node_modules/**', 'server/**', 'dist/**'],
+    },
   };
 });

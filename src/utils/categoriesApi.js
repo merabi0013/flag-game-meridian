@@ -1,12 +1,11 @@
 /**
- * paidCategoriesApi.js
+ * categoriesApi.js
  * -----------------------------------------------------------------------
- * Thin wrappers, same shape as utils/adminApi.js. None of these decide
- * anything -- every one can come back 401/403/409/etc., and the backend
- * is what actually enforces price, ownership, and payment status (see
- * server/routes/purchase.js, categories.js). The frontend only ever
- * displays what these calls report and redirects to whatever URL the
- * checkout call returns.
+ * Thin wrappers over the category, access and purchase endpoints. None of
+ * these decide anything — each can come back 401/403/409/etc. and the
+ * backend is what actually enforces type, price, ownership and payment
+ * status (server/routes/categories.js, purchase.js). The frontend only
+ * displays what these report and redirects to the URL checkout returns.
  * -----------------------------------------------------------------------
  */
 import { authedFetch } from '../hooks/useAuth';
@@ -33,19 +32,18 @@ async function apiFetch(path, options) {
   return body;
 }
 
-/** Public -- no auth required, safe to call for guests so the category
- * grid can show price/lock state before sign-in. */
-export function fetchPaidCategories() {
-  return apiFetch('/api/categories/paid');
+/** Public: the category tree with the server's type/enabled/price/flag counts. */
+export function fetchCategories() {
+  return apiFetch('/api/categories');
 }
 
-/** Requires auth. Combines the paid-category list with this user's
- * ownership (real entitlement OR admin bypass) in one call. */
+/** Requires auth: what this user can play (real entitlement or admin). */
 export function fetchMyAccess() {
   return apiFetch('/api/me/access');
 }
 
-export function fetchPaidCategoryCountries(categoryId) {
+/** Flags for a server-hosted category. The server re-checks access on every call. */
+export function fetchRemoteCategoryCountries(categoryId) {
   return apiFetch(`/api/categories/${encodeURIComponent(categoryId)}/countries`);
 }
 

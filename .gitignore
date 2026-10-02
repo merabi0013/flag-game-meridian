@@ -24,3 +24,10 @@ yarn-debug.log*
 yarn-error.log*
 
 *.patch
+
+# Legacy SQLite database files (data now lives in PostgreSQL). Never commit
+# a database, they contain user data.
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+server/data/*.db

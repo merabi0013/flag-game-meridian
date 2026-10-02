@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { fetchPaidCategoryCountries, PaymentApiError } from '../utils/paidCategoriesApi';
+import { fetchRemoteCategoryCountries, PaymentApiError } from '../utils/categoriesApi';
 
 /**
- * Only call this once access is already known to be granted (owned or
- * admin) -- the endpoint itself re-checks that independently regardless
- * (see server/routes/categories.js), so this hook's `error` state is
- * exactly what happens if that check fails anyway (e.g. a stale UI, a
- * category disabled mid-session).
+ * Loads the flags of a server-hosted category. Call it with `enabled`
+ * true only once access is expected (free, owned or admin) — the endpoint
+ * re-checks that independently on every request (server/routes/
+ * categories.js), so `error` is exactly what happens when that check
+ * fails anyway (a stale screen, a category disabled mid-session).
  */
-export function usePaidCategoryCountries(categoryId, enabled) {
+export function useRemoteCategoryCountries(categoryId, enabled) {
   const [countries, setCountries] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -16,12 +16,12 @@ export function usePaidCategoryCountries(categoryId, enabled) {
   useEffect(() => {
     if (!categoryId || !enabled) {
       setCountries(null);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchPaidCategoryCountries(categoryId)
+    fetchRemoteCategoryCountries(categoryId)
       .then((data) => {
         if (!cancelled) setCountries(data.countries);
       })

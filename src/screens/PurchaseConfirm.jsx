@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { confirmPurchase, PaymentApiError } from '../utils/paidCategoriesApi';
+import { confirmPurchase, PaymentApiError } from '../utils/categoriesApi';
 import { labelForCategory } from '../utils/categories';
+import { useCatalog } from '../context/CatalogContext';
 
 /**
  * Stripe redirects the browser here after checkout (see the success_url
@@ -13,6 +14,7 @@ import { labelForCategory } from '../utils/categories';
  */
 export default function PurchaseConfirm() {
   const [params] = useSearchParams();
+  const { refresh: refreshCatalog } = useCatalog();
   const [state, setState] = useState('checking'); // 'checking' | 'success' | 'failed'
   const [message, setMessage] = useState(null);
 
@@ -31,6 +33,7 @@ export default function PurchaseConfirm() {
         const result = await confirmPurchase(sessionId);
         if (cancelled) return;
         if (result.paid) {
+          refreshCatalog(); // the picker should show the new purchase right away
           setState('success');
         } else {
           setState('failed');

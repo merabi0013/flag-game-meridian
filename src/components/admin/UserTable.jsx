@@ -66,7 +66,7 @@ export default function UserTable({
                   <div className="admin-user-row-email">{u.email || '—'}</div>
                   <Badges user={u} />
                 </td>
-                <td>{u.provider}</td>
+                <td>{u.providers && u.providers.length ? u.providers.join(', ') : 'none'}</td>
                 <td>{u.gamesPlayed}</td>
                 <td>{u.accuracy}%</td>
                 <td>

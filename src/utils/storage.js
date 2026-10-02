@@ -24,6 +24,25 @@ export function emptyStats() {
   };
 }
 
+/** Upgrades a stored per-category entry (missing, legacy {asked, correct}, or current) to the current shape. */
+export function upgradeCategoryEntry(entry) {
+  if (entry && Number.isFinite(entry.gamesPlayed)) return { ...entry };
+  const legacyQuestions = entry ? entry.asked || 0 : 0;
+  return {
+    gamesPlayed: 0,
+    questionsAnswered: legacyQuestions,
+    correct: entry ? entry.correct || 0 : 0,
+    incorrect: 0,
+    skipped: 0,
+    totalScore: 0,
+    bestScore: 0,
+    bestStreak: 0,
+    asked: legacyQuestions,
+    // Only true when older, less-detailed history is mixed in.
+    partial: legacyQuestions > 0,
+  };
+}
+
 export function readGuestStats() {
   try {
     const raw = localStorage.getItem(GUEST_KEY);
@@ -55,9 +74,22 @@ export function recordGuestGame(result) {
   stats.bestScore = Math.max(stats.bestScore, result.score);
   stats.bestStreak = Math.max(stats.bestStreak, result.bestStreak);
 
-  const cat = stats.categoryStats[result.categoryId] || { asked: 0, correct: 0 };
-  cat.asked += result.totalQuestions;
+  // Per-category record, keyed by whatever category id was played (nothing
+  // here knows about specific categories). Entries written by older
+  // versions only have { asked, correct }; they are upgraded in place and
+  // flagged `partial` because the detailed metrics only cover games
+  // recorded since.
+  const previous = stats.categoryStats[result.categoryId];
+  const cat = upgradeCategoryEntry(previous);
+  cat.gamesPlayed += 1;
+  cat.questionsAnswered += result.totalQuestions;
   cat.correct += result.correct;
+  cat.incorrect += result.incorrect;
+  cat.skipped += result.skipped || 0;
+  cat.totalScore += result.score;
+  cat.bestScore = Math.max(cat.bestScore, result.score);
+  cat.bestStreak = Math.max(cat.bestStreak, result.bestStreak);
+  cat.asked = cat.questionsAnswered; // legacy field, kept for compatibility
   stats.categoryStats[result.categoryId] = cat;
 
   stats.recentGames.unshift({

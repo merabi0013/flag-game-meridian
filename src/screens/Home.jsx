@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { countriesForCategory, labelForCategory, isPaidCategory } from '../utils/categories';
 import { ALL_COUNTRIES } from '../data/countries';
 import { useAuthContext } from '../context/AuthContext';
-import { usePaidAccess } from '../hooks/usePaidAccess';
-import { usePaidCategoryCountries } from '../hooks/usePaidCategoryCountries';
+import { useCatalog } from '../context/CatalogContext';
+import { useRemoteCategoryCountries } from '../hooks/useRemoteCategoryCountries';
 import CategoryGrid from '../components/CategoryGrid';
 import GameModeSelector from '../components/GameModeSelector';
 import GameModeToggle from '../components/GameModeToggle';
@@ -17,9 +16,9 @@ import PurchaseModal from '../components/PurchaseModal';
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuthContext();
-  const { paidCategories } = usePaidAccess(user);
+  const { catalog } = useCatalog();
 
-  const [tab, setTab] = useState('continent');
+  const [tab, setTab] = useState(null); // null = the first tab group
   const [categoryId, setCategoryId] = useState(null);
   const [length, setLength] = useState('20');
   const [customLength, setCustomLength] = useState(1);
@@ -29,21 +28,22 @@ export default function Home() {
   const [gameMode, setGameMode] = useState('solo');
   const [purchaseCategoryId, setPurchaseCategoryId] = useState(null);
 
-  const selectedIsPaid = categoryId ? isPaidCategory(categoryId) : false;
-  const selectedPaidAccess = selectedIsPaid ? paidCategories[categoryId] : null;
-  const canPlaySelectedPaid = selectedPaidAccess && (selectedPaidAccess.owned || selectedPaidAccess.viaAdmin);
+  // Everything about the selected category — its type, price, whether
+  // this person may play it — comes from the catalog, i.e. from the
+  // server (see utils/categoryCatalog.js). Nothing is decided here.
+  const selected = categoryId ? catalog.byId[categoryId] || null : null;
+  const selectedRemote = !!selected && selected.hosting === 'remote';
+  const canPlaySelected = !!selected && selected.playable;
 
-  // For a paid category, the real flag count only comes from the
-  // entitlement-gated endpoint — the bundled ALL_COUNTRIES has nothing
-  // for it (see utils/categories.js). Only fetched once access is
-  // actually confirmed, same rule the backend itself enforces.
-  const { countries: paidCountries } = usePaidCategoryCountries(categoryId, selectedIsPaid && canPlaySelectedPaid);
+  // Server-hosted flags are fetched once access is expected; the server
+  // re-checks it on that request regardless.
+  const { countries: remoteCountries } = useRemoteCategoryCountries(categoryId, selectedRemote && canPlaySelected);
 
   const categoryCount = useMemo(() => {
-    if (!categoryId) return 0;
-    if (selectedIsPaid) return paidCountries ? paidCountries.length : 0;
-    return countriesForCategory(categoryId, ALL_COUNTRIES).length;
-  }, [categoryId, selectedIsPaid, paidCountries]);
+    if (!selected) return 0;
+    if (selectedRemote) return remoteCountries ? remoteCountries.length : 0;
+    return selected.flagNumber;
+  }, [selected, selectedRemote, remoteCountries]);
 
   const effectiveCount = useMemo(() => {
     if (!categoryId || !categoryCount) return 0;
@@ -54,18 +54,15 @@ export default function Home() {
 
   function selectCategory(id) {
     setCategoryId(id);
-    if (!isPaidCategory(id)) {
-      const max = countriesForCategory(id, ALL_COUNTRIES).length || 1;
+    const entry = catalog.byId[id];
+    if (entry && entry.hosting === 'bundled') {
+      const max = entry.flagNumber || 1;
       if (customLength > max) setCustomLength(max);
     }
   }
 
-  function countFor(id) {
-    return countriesForCategory(id, ALL_COUNTRIES).length;
-  }
-
   function handlePlay() {
-    if (!categoryId || (selectedIsPaid && !canPlaySelectedPaid)) return;
+    if (!selected || !canPlaySelected) return;
     const params = new URLSearchParams({
       category: categoryId,
       difficulty,
@@ -80,7 +77,8 @@ export default function Home() {
     }
   }
 
-  const purchaseCategory = purchaseCategoryId ? paidCategories[purchaseCategoryId] : null;
+  const purchaseCategory = purchaseCategoryId ? catalog.byId[purchaseCategoryId] || null : null;
+  const categoryTotal = Object.keys(catalog.byId).length;
 
   return (
     <>
@@ -114,8 +112,8 @@ export default function Home() {
               <span>Flags in the atlas</span>
             </div>
             <div className="hero-stat">
-              <b>18</b>
-              <span>Regions &amp; continents</span>
+              <b>{categoryTotal}</b>
+              <span>Categories</span>
             </div>
             <div className="hero-stat">
               <b>3</b>
@@ -133,13 +131,11 @@ export default function Home() {
                 <h2>Choose a category</h2>
                 <p className="panel-sub">Continents, hand-picked regions, or every flag in the atlas.</p>
                 <CategoryGrid
-                  allCountries={ALL_COUNTRIES}
+                  groups={catalog.groups}
                   tab={tab}
                   onTabChange={setTab}
                   categoryId={categoryId}
                   onSelectCategory={selectCategory}
-                  countFor={countFor}
-                  paidCategories={paidCategories}
                   onOpenPurchase={setPurchaseCategoryId}
                 />
               </div>
@@ -172,22 +168,24 @@ export default function Home() {
                     variant="primary"
                     block
                     className="play-cta"
-                    disabled={!categoryId || (selectedIsPaid && !canPlaySelectedPaid) || !categoryCount}
+                    disabled={!selected || !canPlaySelected || !categoryCount}
                     onClick={handlePlay}
                   >
-                    {!categoryId
+                    {!selected
                       ? 'Select a category to play'
-                      : selectedIsPaid && !canPlaySelectedPaid
+                      : selected.unavailable
+                      ? 'This category is currently unavailable'
+                      : selected.locked
                       ? 'Purchase this category to play'
-                      : selectedIsPaid && !categoryCount
+                      : selectedRemote && !categoryCount
                       ? 'Loading category…'
                       : gameMode === 'multiplayer'
                       ? 'Setup Teams'
-                      : `Play ${labelForCategory(categoryId)} — ${effectiveCount} flag${effectiveCount === 1 ? '' : 's'}`}
+                      : `Play ${selected.name} — ${effectiveCount} flag${effectiveCount === 1 ? '' : 's'}`}
                   </Button>
-                  {categoryId && categoryCount > 0 && (
+                  {selected && categoryCount > 0 && (
                     <p className="selection-summary">
-                      {labelForCategory(categoryId)} · {effectiveCount} flags · {difficulty} ·{' '}
+                      {selected.name} · {effectiveCount} flags · {difficulty} ·{' '}
                       {timerEnabled ? `${timerMinutes} min timer` : 'free run'}
                       {gameMode === 'multiplayer' ? ' · multiplayer' : ''}
                     </p>

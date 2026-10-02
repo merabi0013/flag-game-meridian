@@ -5,7 +5,7 @@
  * logic of their own — every one of them can fail with 401/403, and
  * every caller (see screens/AdminPanel.jsx) treats that as "show the
  * access-denied view", not as a bug. The real gate is server-side (see
- * server/middleware/requireAdmin.js); nothing here decides who's an
+ * server/middleware/auth.js (requireAdmin)); nothing here decides who's an
  * admin.
  * -----------------------------------------------------------------------
  */
@@ -76,12 +76,12 @@ export function fetchAdminMultiplayerGames({ page = 1, pageSize = 20 } = {}) {
   return adminFetch(`/multiplayer-games?page=${page}&pageSize=${pageSize}`);
 }
 
-export function fetchAdminPaidCategories() {
-  return adminFetch('/paid-categories');
+export function fetchAdminCategories() {
+  return adminFetch('/categories');
 }
 
-export function updateAdminPaidCategory(categoryId, patch) {
-  return adminFetch(`/paid-categories/${encodeURIComponent(categoryId)}`, {
+export function updateAdminCategory(categoryId, patch) {
+  return adminFetch(`/categories/${encodeURIComponent(categoryId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),

@@ -98,7 +98,7 @@ export default function UserEditor({ userId, detail, loading, error, onSave, onD
         <div>
           <h2 style={{ marginBottom: 4 }}>{user.name || '(no name)'}</h2>
           <p className="panel-sub" style={{ margin: 0 }}>
-            {user.provider} · joined {new Date(user.createdAt).toLocaleDateString()}
+            {user.providers && user.providers.length ? user.providers.join(' + ') : 'no sign-in linked'} · joined {new Date(user.createdAt).toLocaleDateString()}
             {user.isAdmin && ' · administrator'}
             {!user.isVerifiedIdentity && ' · unverified placeholder record'}
           </p>

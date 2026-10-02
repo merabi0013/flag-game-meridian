@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { labelForCategory } from '../utils/categories';
+import { labelForCategory, CATEGORY_TREE } from '../utils/categories';
+import { buildStatsSections } from '../utils/categoryStats';
+import { KNOWN_PROVIDERS, providerLabel } from '../utils/authMessages';
 import { readGuestStats, clearGuestStats, accuracy as accuracyOf } from '../utils/storage';
 import { readGuestMultiplayerGames, clearGuestMultiplayerGames } from '../utils/multiplayerStorage';
 import { rankPlayers, formatDurationMs } from '../utils/ranking';
 import { loginUrl } from '../hooks/useAuth';
-import { usePaidAccess } from '../hooks/usePaidAccess';
+import { useCatalog } from '../context/CatalogContext';
 import Button from '../components/Button';
 
 export default function Profile() {
-  const { user, backendReachable, authedFetch } = useAuthContext();
+  const { user, backendReachable, authedFetch, linkProvider } = useAuthContext();
   // location.pathname is the real browser path (already includes the
   // GitHub Pages subpath, if any) — use it instead of a hardcoded
   // '/profile' literal so sign-in still returns here correctly under a
@@ -22,7 +24,8 @@ export default function Profile() {
   const [stats, setStats] = useState(readGuestStats());
   const [source, setSource] = useState('guest');
   const [multiplayerGames, setMultiplayerGames] = useState([]);
-  const { paidCategories } = usePaidAccess(user);
+  const { catalog } = useCatalog();
+  const [linkError, setLinkError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,10 +73,20 @@ export default function Profile() {
 
   const accuracy = source === 'server' ? stats.accuracy ?? accuracyOf(stats) : accuracyOf(stats);
   const avgScore = stats.gamesPlayed ? Math.round(stats.totalScore / stats.gamesPlayed) : 0;
-  const categoryRows = Object.entries(stats.categoryStats || {})
-    .filter(([, v]) => v.asked > 0)
-    .map(([id, v]) => ({ id, label: labelForCategory(id), pct: Math.round((v.correct / v.asked) * 100), asked: v.asked }))
-    .sort((a, b) => b.asked - a.asked);
+  // Per-category statistics, grouped like the category picker. Generated
+  // from the category tree and whatever categories appear in the records.
+  const categorySections = buildStatsSections(stats.categoryStats, CATEGORY_TREE, labelForCategory);
+  const ownedPaid = Object.values(catalog.byId).filter((c) => c.type === 'paid' && c.owned);
+  const linkedProviders = (user && user.providers) || [];
+
+  async function handleLink(provider) {
+    setLinkError(null);
+    try {
+      await linkProvider(provider, '/profile');
+    } catch (err) {
+      setLinkError(err.message);
+    }
+  }
   const recentGames = stats.recentGames || [];
 
   return (
@@ -83,7 +96,9 @@ export default function Profile() {
         <div>
           <h1 className="profile-name">{user ? user.name || user.email : 'Guest player'}</h1>
           <div className="profile-meta">
-            {user ? `Signed in via ${user.provider}` : 'Stats saved in this browser only'}
+            {user
+              ? `Signed in via ${(linkedProviders.length ? linkedProviders : [user.provider]).map(providerLabel).join(' + ')}`
+              : 'Stats saved in this browser only'}
           </div>
         </div>
       </div>
@@ -132,46 +147,98 @@ export default function Profile() {
           </div>
         </section>
 
-        {user && Object.values(paidCategories).some((c) => c.owned) && (
+        {user && (
+          <section className="profile-section">
+            <h2>Connected accounts</h2>
+            <p className="panel-sub">Sign in with any of these and you land on this same profile.</p>
+            <div className="recent-list">
+              {KNOWN_PROVIDERS.map((provider) => {
+                const connected = linkedProviders.includes(provider);
+                return (
+                  <div className="recent-row" key={provider}>
+                    <span className="r-cat">{providerLabel(provider)}</span>
+                    <span className="r-meta">
+                      {connected ? (
+                        <span className="badge badge-owned">Connected</span>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => handleLink(provider)}>
+                          Connect {providerLabel(provider)}
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {linkError && <p style={{ color: 'var(--rust-bright)', fontSize: '0.85rem', marginTop: 8 }}>{linkError}</p>}
+          </section>
+        )}
+
+        {user && ownedPaid.length > 0 && (
           <section className="profile-section">
             <h2>Your games</h2>
             <div className="recent-list">
-              {Object.values(paidCategories)
-                .filter((c) => c.owned)
-                .map((c) => (
-                  <div className="recent-row" key={c.categoryId}>
-                    <span className="r-cat">{c.name}</span>
-                    <span className="r-meta">{c.viaAdmin ? 'Admin access' : 'Purchased'}</span>
-                  </div>
-                ))}
+              {ownedPaid.map((c) => (
+                <div className="recent-row" key={c.id}>
+                  <span className="r-cat">{c.name}</span>
+                  <span className="r-meta">{c.viaAdmin ? 'Admin access' : 'Purchased'}</span>
+                </div>
+              ))}
             </div>
           </section>
         )}
 
-        <section className="profile-section">
-          <h2>Category performance</h2>
-          {categoryRows.length ? (
-            <table className="category-perf-table">
-              <thead>
-                <tr><th>Category</th><th>Accuracy</th><th></th><th></th></tr>
-              </thead>
-              <tbody>
-                {categoryRows.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.label}</td>
-                    <td style={{ width: 140 }}>
-                      <div className="perf-bar-track"><div className="perf-bar-fill" style={{ width: `${r.pct}%` }} /></div>
-                    </td>
-                    <td style={{ width: 60 }}>{r.pct}%</td>
-                    <td style={{ width: 80, color: 'var(--parchment-dim)' }}>{r.asked} asked</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
+        <section className="profile-section" data-testid="category-stats">
+          <h2>Statistics by category</h2>
+          {categorySections.isEmpty ? (
             <p className="panel-sub" style={{ marginTop: 12 }}>
               No games played yet in any category — head to the home page and play a round.
             </p>
+          ) : (
+            <>
+              {categorySections.sections.map((section) => (
+                <div className="stats-group" key={section.id}>
+                  <h3 className="stats-group-title">{section.name}</h3>
+                  <div className="table-scroll">
+                    <table className="category-perf-table stats-by-category">
+                      <thead>
+                        <tr>
+                          <th>Category</th>
+                          <th>Games</th>
+                          <th>Questions</th>
+                          <th colSpan={2}>Accuracy</th>
+                          <th>Best score</th>
+                          <th>Best streak</th>
+                          <th>Avg score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.rows.map((r) => (
+                          <tr key={r.id} data-category={r.id}>
+                            <td>{r.name}</td>
+                            <td>{r.gamesPlayed ?? '—'}</td>
+                            <td>{r.questionsAnswered}</td>
+                            <td style={{ width: 90 }}>
+                              <div className="perf-bar-track"><div className="perf-bar-fill" style={{ width: `${r.accuracy}%` }} /></div>
+                            </td>
+                            <td style={{ width: 52 }}>{r.accuracy}%</td>
+                            <td>{r.bestScore ?? '—'}</td>
+                            <td>{r.bestStreak ?? '—'}</td>
+                            <td>{r.averageScore ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+              {categorySections.hasPartial && (
+                <p className="panel-sub" style={{ marginTop: 10 }}>
+                  Detailed per-category numbers for guest play start from this update; earlier games only count
+                  toward questions and accuracy.
+                </p>
+              )}
+            </>
           )}
         </section>
 

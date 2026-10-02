@@ -26,7 +26,7 @@ import { countriesForCategory } from './categories';
  *
  * `pool` is an optional pre-resolved country array — used for paid
  * categories, whose countries come from an entitlement-gated backend
- * endpoint (see hooks/usePaidCategoryCountries.js) rather than the
+ * endpoint (see hooks/useRemoteCategoryCountries.js) rather than the
  * bundled `allCountries`. When omitted, the pool is resolved from
  * `allCountries` via the normal free-category lookup, unchanged from
  * before this existed.

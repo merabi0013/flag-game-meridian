@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { ALL_COUNTRIES } from '../data/countries';
-import { labelForCategory, countriesForCategory, isPaidCategory } from '../utils/categories';
+import { labelForCategory, countriesForCategory, isRemoteCategory } from '../utils/categories';
 import { useGame } from '../hooks/useGame';
 import { canSkip } from '../utils/gameLogic';
 import { useAuthContext } from '../context/AuthContext';
-import { usePaidCategoryCountries } from '../hooks/usePaidCategoryCountries';
+import { useRemoteCategoryCountries } from '../hooks/useRemoteCategoryCountries';
 import { useWarnBeforeUnload } from '../hooks/useWarnBeforeUnload';
 import { useEnterToAdvance } from '../hooks/useEnterToAdvance';
 import FlagDisplay from '../components/FlagDisplay';
@@ -48,11 +48,13 @@ function ErrorPanel({ title, message }) {
 export default function Game() {
   const [params] = useSearchParams();
   const categoryId = params.get('category') || 'world';
-  const paid = isPaidCategory(categoryId);
+  // Server-hosted categories (paid or free) get their flags from the
+  // backend, which decides access; bundled ones start straight away.
+  const remote = isRemoteCategory(categoryId);
 
-  const { countries: paidCountries, loading: paidLoading, error: paidError } = usePaidCategoryCountries(categoryId, paid);
+  const { countries: remoteCountries, loading: remoteLoading, error: remoteError } = useRemoteCategoryCountries(categoryId, remote);
 
-  if (paid && paidLoading) {
+  if (remote && remoteLoading) {
     return (
       <main className="game-shell">
         <div className="container state-block">
@@ -63,16 +65,28 @@ export default function Game() {
     );
   }
 
-  if (paid && paidError) {
+  if (remote && remoteError) {
     return (
       <ErrorPanel
         title="You don't have access to this category"
-        message={`${paidError} Head back to the category picker to purchase it.`}
+        message={`${remoteError} Head back to the category picker to purchase it.`}
       />
     );
   }
 
-  return <ModeRouter categoryId={categoryId} paidPool={paid ? paidCountries : null} params={params} />;
+  if (remote && !remoteCountries) {
+    // the fetch has not started yet (first render): show the same spinner
+    return (
+      <main className="game-shell">
+        <div className="container state-block">
+          <div className="spinner" />
+          <p>Checking access…</p>
+        </div>
+      </main>
+    );
+  }
+
+  return <ModeRouter categoryId={categoryId} paidPool={remote ? remoteCountries : null} params={params} />;
 }
 
 function ModeRouter({ categoryId, paidPool, params }) {

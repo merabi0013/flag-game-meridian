@@ -52,5 +52,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
     },
+    // Unit + component tests (npm test). Component tests opt in to a DOM
+    // with a `// @vitest-environment jsdom` comment at the top of the file.
+    test: {
+      include: ['tests/**/*.test.{js,jsx}'],
+      exclude: ['node_modules/**', 'server/**', 'dist/**'],
+    },
   };
 });

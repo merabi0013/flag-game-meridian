@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { countriesForCategory, labelForCategory, isPaidCategory } from '../utils/categories';
+import { categoryGroups, allCategories, getCategoryDef, labelForCategory, isPaidCategory } from '../utils/categories';
 import { ALL_COUNTRIES } from '../data/countries';
 import { useAuthContext } from '../context/AuthContext';
 import { usePaidAccess } from '../hooks/usePaidAccess';
@@ -19,7 +19,7 @@ export default function Home() {
   const { user } = useAuthContext();
   const { paidCategories } = usePaidAccess(user);
 
-  const [tab, setTab] = useState('continent');
+  const [tab, setTab] = useState('continents');
   const [categoryId, setCategoryId] = useState(null);
   const [length, setLength] = useState('20');
   const [customLength, setCustomLength] = useState(1);
@@ -42,7 +42,9 @@ export default function Home() {
   const categoryCount = useMemo(() => {
     if (!categoryId) return 0;
     if (selectedIsPaid) return paidCountries ? paidCountries.length : 0;
-    return countriesForCategory(categoryId, ALL_COUNTRIES).length;
+    // Derived from the category's own flags (see utils/categories.js).
+    const def = getCategoryDef(categoryId);
+    return def && def.flagNumber ? def.flagNumber : 0;
   }, [categoryId, selectedIsPaid, paidCountries]);
 
   const effectiveCount = useMemo(() => {
@@ -54,14 +56,11 @@ export default function Home() {
 
   function selectCategory(id) {
     setCategoryId(id);
-    if (!isPaidCategory(id)) {
-      const max = countriesForCategory(id, ALL_COUNTRIES).length || 1;
+    const def = getCategoryDef(id);
+    if (def && def.type !== 'paid') {
+      const max = def.flagNumber || 1;
       if (customLength > max) setCustomLength(max);
     }
-  }
-
-  function countFor(id) {
-    return countriesForCategory(id, ALL_COUNTRIES).length;
   }
 
   function handlePlay() {
@@ -114,8 +113,8 @@ export default function Home() {
               <span>Flags in the atlas</span>
             </div>
             <div className="hero-stat">
-              <b>18</b>
-              <span>Regions &amp; continents</span>
+              <b>{allCategories().filter((c) => c.type !== 'paid' || FEATURE_FLAGS.paidCategories).length}</b>
+              <span>Categories</span>
             </div>
             <div className="hero-stat">
               <b>3</b>
@@ -131,14 +130,13 @@ export default function Home() {
             <div className="setup-grid">
               <div className="panel">
                 <h2>Choose a category</h2>
-                <p className="panel-sub">Continents, hand-picked regions, or every flag in the atlas.</p>
+                <p className="panel-sub">Continents, hand-picked regions, every flag in the atlas, or the maps of the past.</p>
                 <CategoryGrid
-                  allCountries={ALL_COUNTRIES}
+                  groups={categoryGroups()}
                   tab={tab}
                   onTabChange={setTab}
                   categoryId={categoryId}
                   onSelectCategory={selectCategory}
-                  countFor={countFor}
                   paidCategories={paidCategories}
                   onOpenPurchase={setPurchaseCategoryId}
                 />

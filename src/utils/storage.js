@@ -24,6 +24,30 @@ export function emptyStats() {
   };
 }
 
+/**
+ * Upgrades one stored per-category entry (missing, the legacy
+ * { asked, correct }, or the current shape) to the current shape, so old
+ * guest data keeps working. `partial` is true when older, less detailed
+ * history is mixed in: the question/accuracy figures are complete, but
+ * games / best score / best streak only cover games played since
+ * detailed per-category tracking began (the profile marks those).
+ */
+export function upgradeCategoryEntry(entry) {
+  if (entry && Number.isFinite(entry.gamesPlayed)) return { ...entry };
+  const legacyQuestions = entry ? entry.asked || 0 : 0;
+  return {
+    gamesPlayed: 0,
+    questionsAnswered: legacyQuestions,
+    correct: entry ? entry.correct || 0 : 0,
+    incorrect: 0,
+    totalScore: 0,
+    bestScore: 0,
+    bestStreak: 0,
+    asked: legacyQuestions, // legacy field, kept so older readers still work
+    partial: legacyQuestions > 0,
+  };
+}
+
 export function readGuestStats() {
   try {
     const raw = localStorage.getItem(GUEST_KEY);
@@ -55,9 +79,17 @@ export function recordGuestGame(result) {
   stats.bestScore = Math.max(stats.bestScore, result.score);
   stats.bestStreak = Math.max(stats.bestStreak, result.bestStreak);
 
-  const cat = stats.categoryStats[result.categoryId] || { asked: 0, correct: 0 };
-  cat.asked += result.totalQuestions;
+  // Per-category record, keyed by whatever category id was played — nothing
+  // here knows about specific categories.
+  const cat = upgradeCategoryEntry(stats.categoryStats[result.categoryId]);
+  cat.gamesPlayed += 1;
+  cat.questionsAnswered += result.totalQuestions;
   cat.correct += result.correct;
+  cat.incorrect += result.incorrect;
+  cat.totalScore += result.score;
+  cat.bestScore = Math.max(cat.bestScore, result.score);
+  cat.bestStreak = Math.max(cat.bestStreak, result.bestStreak);
+  cat.asked = cat.questionsAnswered;
   stats.categoryStats[result.categoryId] = cat;
 
   stats.recentGames.unshift({

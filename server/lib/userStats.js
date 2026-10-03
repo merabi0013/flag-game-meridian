@@ -38,15 +38,32 @@ function computeAggregate(userId) {
   const byCategory = db
     .prepare(
       `SELECT category_id as categoryId,
+              COUNT(*) as gamesPlayed,
               COALESCE(SUM(total_questions), 0) as asked,
-              COALESCE(SUM(correct), 0) as correct
+              COALESCE(SUM(correct), 0) as correct,
+              COALESCE(SUM(incorrect), 0) as incorrect,
+              COALESCE(SUM(score), 0) as totalScore,
+              COALESCE(MAX(score), 0) as bestScore,
+              COALESCE(MAX(best_streak), 0) as bestStreak
        FROM games WHERE user_id = ? GROUP BY category_id`
     )
     .all(userId);
 
   const categoryStats = {};
   byCategory.forEach((row) => {
-    categoryStats[row.categoryId] = { asked: row.asked, correct: row.correct };
+    // `asked` / `correct` are the original fields (kept for older clients);
+    // the rest are computed from the same stored rows. Nothing here names a
+    // category: every category_id found in `games` gets an entry.
+    categoryStats[row.categoryId] = {
+      asked: row.asked,
+      correct: row.correct,
+      gamesPlayed: row.gamesPlayed,
+      questionsAnswered: row.asked,
+      incorrect: row.incorrect,
+      totalScore: row.totalScore,
+      bestScore: row.bestScore,
+      bestStreak: row.bestStreak,
+    };
   });
 
   const recentGames = db

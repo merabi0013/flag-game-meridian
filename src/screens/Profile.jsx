@@ -2,13 +2,42 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { labelForCategory } from '../utils/categories';
+import { labelForCategory, categoryGroups } from '../utils/categories';
+import { buildStatsSections } from '../utils/categoryStats';
 import { readGuestStats, clearGuestStats, accuracy as accuracyOf } from '../utils/storage';
 import { readGuestMultiplayerGames, clearGuestMultiplayerGames } from '../utils/multiplayerStorage';
 import { rankPlayers, formatDurationMs } from '../utils/ranking';
 import { loginUrl } from '../hooks/useAuth';
 import { usePaidAccess } from '../hooks/usePaidAccess';
 import Button from '../components/Button';
+
+const dash = '—';
+
+/** One category's statistics: a heading and the same five metrics for every category. */
+function CategoryStatCard({ row }) {
+  const mark = row.partial ? '†' : '';
+  const value = (v, suffix = '') => (v === null || v === undefined ? dash : `${v}${suffix}${suffix === '' ? mark : ''}`);
+  const metrics = [
+    ['Games played', value(row.gamesPlayed)],
+    ['Questions answered', String(row.questionsAnswered)],
+    ['Accuracy', `${row.accuracy}%`],
+    ['Best score', value(row.bestScore)],
+    ['Best streak', value(row.bestStreak)],
+  ];
+  return (
+    <div className="cat-stat-card" data-category={row.id}>
+      <h4 className="cat-stat-name">{row.name}</h4>
+      <dl className="cat-stat-grid">
+        {metrics.map(([label, v]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 export default function Profile() {
   const { user, backendReachable, authedFetch } = useAuthContext();
@@ -70,10 +99,8 @@ export default function Profile() {
 
   const accuracy = source === 'server' ? stats.accuracy ?? accuracyOf(stats) : accuracyOf(stats);
   const avgScore = stats.gamesPlayed ? Math.round(stats.totalScore / stats.gamesPlayed) : 0;
-  const categoryRows = Object.entries(stats.categoryStats || {})
-    .filter(([, v]) => v.asked > 0)
-    .map(([id, v]) => ({ id, label: labelForCategory(id), pct: Math.round((v.correct / v.asked) * 100), asked: v.asked }))
-    .sort((a, b) => b.asked - a.asked);
+  // Category -> performance records -> calculated stats -> sections (utils/categoryStats.js).
+  const categorySections = buildStatsSections(stats.categoryStats, categoryGroups(), labelForCategory);
   const recentGames = stats.recentGames || [];
 
   return (
@@ -121,17 +148,6 @@ export default function Profile() {
           </div>
         )}
 
-        <section className="profile-section">
-          <div className="profile-grid">
-            <div className="profile-stat"><b>{stats.gamesPlayed}</b><span>Games played</span></div>
-            <div className="profile-stat"><b>{stats.questionsAnswered}</b><span>Questions answered</span></div>
-            <div className="profile-stat"><b>{accuracy}%</b><span>Accuracy</span></div>
-            <div className="profile-stat"><b>{stats.bestStreak}</b><span>Best streak</span></div>
-            <div className="profile-stat"><b>{stats.bestScore}</b><span>Best score</span></div>
-            <div className="profile-stat"><b>{avgScore}</b><span>Average score</span></div>
-          </div>
-        </section>
-
         {user && Object.values(paidCategories).some((c) => c.owned) && (
           <section className="profile-section">
             <h2>Your games</h2>
@@ -148,30 +164,49 @@ export default function Profile() {
           </section>
         )}
 
-        <section className="profile-section">
-          <h2>Category performance</h2>
-          {categoryRows.length ? (
-            <table className="category-perf-table">
-              <thead>
-                <tr><th>Category</th><th>Accuracy</th><th></th><th></th></tr>
-              </thead>
-              <tbody>
-                {categoryRows.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.label}</td>
-                    <td style={{ width: 140 }}>
-                      <div className="perf-bar-track"><div className="perf-bar-fill" style={{ width: `${r.pct}%` }} /></div>
-                    </td>
-                    <td style={{ width: 60 }}>{r.pct}%</td>
-                    <td style={{ width: 80, color: 'var(--parchment-dim)' }}>{r.asked} asked</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
+        <section className="profile-section" data-testid="statistics">
+          <h2>Your statistics</h2>
+
+          <div className="stats-group" data-testid="overall-stats">
+            <h3 className="stats-group-title">All categories</h3>
+            <div className="profile-grid">
+              <div className="profile-stat"><b>{stats.gamesPlayed}</b><span>Games played</span></div>
+              <div className="profile-stat"><b>{stats.questionsAnswered}</b><span>Questions answered</span></div>
+              <div className="profile-stat"><b>{accuracy}%</b><span>Accuracy</span></div>
+              <div className="profile-stat"><b>{stats.bestStreak}</b><span>Best streak</span></div>
+              <div className="profile-stat"><b>{stats.bestScore}</b><span>Best score</span></div>
+              <div className="profile-stat"><b>{avgScore}</b><span>Average score</span></div>
+            </div>
+          </div>
+
+          {categorySections.isEmpty ? (
             <p className="panel-sub" style={{ marginTop: 12 }}>
               No games played yet in any category — head to the home page and play a round.
             </p>
+          ) : (
+            <div data-testid="category-stats">
+              {categorySections.sections.map((section) => {
+                // A group holding one category of the same name (World) needs no extra heading.
+                const redundantTitle = section.rows.length === 1 && section.rows[0].name === section.name;
+                return (
+                  <div className="stats-group" key={section.id} data-group={section.id}>
+                    {!redundantTitle && <h3 className="stats-group-title">{section.name}</h3>}
+                    <div className="cat-stat-list">
+                      {section.rows.map((row) => (
+                        <CategoryStatCard key={row.id} row={row} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {categorySections.hasPartial && (
+                <p className="stats-footnote">
+                  † Detailed per-category tracking began recently. Games, best score and best streak marked † cover
+                  games since then; earlier games in that category are already included in questions answered and
+                  accuracy.
+                </p>
+              )}
+            </div>
           )}
         </section>
 

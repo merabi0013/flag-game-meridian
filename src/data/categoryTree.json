@@ -1,0 +1,377 @@
+{
+  "$comment": "Meridian category tree: the ONE file that defines which categories exist (see docs/CATEGORIES.md). Two levels: groups -> categories. Group options: `featured: true` pins the group's card above the tabs; `layout: \"list\"` shows wide cards instead of a compact grid. Category fields: `id` (stable, never change once players have history), `name`, `type` (\"default\" = free, \"paid\" = premium, served by the backend), `flagSource` (where the flags come from: {kind:'bundled', where?} filters src/data/countries.json; {kind:'dataset', dataset} loads src/data/datasets/<dataset>.json; {kind:'remote'} is fetched from the backend and is REQUIRED for type \"paid\"). `flagNumber` is never written here: it is derived from the flags themselves.",
+  "groups": [
+    {
+      "id": "world",
+      "name": "World",
+      "featured": true,
+      "categories": [
+        {
+          "id": "world",
+          "name": "World",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled"
+          }
+        }
+      ]
+    },
+    {
+      "id": "continents",
+      "name": "Continents",
+      "categories": [
+        {
+          "id": "europe",
+          "name": "Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "Europe"
+            }
+          }
+        },
+        {
+          "id": "asia",
+          "name": "Asia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "Asia"
+            }
+          }
+        },
+        {
+          "id": "eurasia",
+          "name": "Eurasia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "eurasia": true
+            }
+          }
+        },
+        {
+          "id": "africa",
+          "name": "Africa",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "Africa"
+            }
+          }
+        },
+        {
+          "id": "north-america",
+          "name": "North America",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "North America"
+            }
+          }
+        },
+        {
+          "id": "south-america",
+          "name": "South America",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "South America"
+            }
+          }
+        },
+        {
+          "id": "oceania",
+          "name": "Australia / Oceania",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "continent": "Oceania"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "regions",
+      "name": "Regions",
+      "categories": [
+        {
+          "id": "middle-east",
+          "name": "Middle East",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Middle East"
+              }
+            }
+          }
+        },
+        {
+          "id": "western-europe",
+          "name": "Western Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Western Europe"
+              }
+            }
+          }
+        },
+        {
+          "id": "northern-europe",
+          "name": "Northern Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Northern Europe"
+              }
+            }
+          }
+        },
+        {
+          "id": "southern-europe",
+          "name": "Southern Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Southern Europe"
+              }
+            }
+          }
+        },
+        {
+          "id": "eastern-europe",
+          "name": "Eastern Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Eastern Europe"
+              }
+            }
+          }
+        },
+        {
+          "id": "central-europe",
+          "name": "Central Europe",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Central Europe"
+              }
+            }
+          }
+        },
+        {
+          "id": "caucasus",
+          "name": "Caucasus",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Caucasus"
+              }
+            }
+          }
+        },
+        {
+          "id": "southeast-asia",
+          "name": "Southeast Asia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Southeast Asia"
+              }
+            }
+          }
+        },
+        {
+          "id": "east-asia",
+          "name": "East Asia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "East Asia"
+              }
+            }
+          }
+        },
+        {
+          "id": "south-asia",
+          "name": "South Asia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "South Asia"
+              }
+            }
+          }
+        },
+        {
+          "id": "central-asia",
+          "name": "Central Asia",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Central Asia"
+              }
+            }
+          }
+        },
+        {
+          "id": "north-africa",
+          "name": "North Africa",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "North Africa"
+              }
+            }
+          }
+        },
+        {
+          "id": "sub-saharan-africa",
+          "name": "Sub-Saharan Africa",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Sub-Saharan Africa"
+              }
+            }
+          }
+        },
+        {
+          "id": "central-america",
+          "name": "Central America",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Central America"
+              }
+            }
+          }
+        },
+        {
+          "id": "caribbean",
+          "name": "Caribbean",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Caribbean"
+              }
+            }
+          }
+        },
+        {
+          "id": "south-america-region",
+          "name": "South America",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "South America"
+              }
+            }
+          }
+        },
+        {
+          "id": "north-america-region",
+          "name": "North America",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "North America"
+              }
+            }
+          }
+        },
+        {
+          "id": "oceania-region",
+          "name": "Oceania",
+          "type": "default",
+          "flagSource": {
+            "kind": "bundled",
+            "where": {
+              "regions": {
+                "includes": "Oceania"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "historical",
+      "name": "Historical",
+      "layout": "list",
+      "categories": [
+        {
+          "id": "world-1914",
+          "name": "World 1914",
+          "type": "default",
+          "flagSource": {
+            "kind": "dataset",
+            "dataset": "world-1914"
+          }
+        },
+        {
+          "id": "world-1945",
+          "name": "World 1945",
+          "type": "default",
+          "flagSource": {
+            "kind": "dataset",
+            "dataset": "world-1945"
+          }
+        },
+        {
+          "id": "world-1991",
+          "name": "World 1991",
+          "type": "default",
+          "flagSource": {
+            "kind": "dataset",
+            "dataset": "world-1991"
+          }
+        }
+      ]
+    }
+  ]
+}

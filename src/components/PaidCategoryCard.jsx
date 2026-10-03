@@ -43,7 +43,7 @@ export function PaidCategoryCard({ category, selected, onSelect, onOpenPurchase 
   if (isLocked || isUnavailable) classes.push('dimmed');
 
   return (
-    <button type="button" className={classes.join(' ')} onClick={handleClick} disabled={isUnavailable}>
+    <button type="button" data-category={category.categoryId} className={classes.join(' ')} onClick={handleClick} disabled={isUnavailable}>
       <span>
         <span className="cc-name">🌍 {name}</span>
         <br />

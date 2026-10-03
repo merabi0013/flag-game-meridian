@@ -9,6 +9,15 @@ The optional accounts backend (`server/`) is unchanged from the previous
 version and works exactly the same way; only how it serves the frontend
 was updated (see "Running with accounts").
 
+> **Categories and statistics.** The categories are one editable two-level
+> tree in [`src/data/categoryTree.json`](src/data/categoryTree.json) and the
+> profile shows statistics per category generated from it. All historical maps
+> are currently **free** and bundled with the app. How the tree works, how to add
+> a category, how free/paid is configured and how the statistics are produced:
+> [`docs/CATEGORIES.md`](docs/CATEGORIES.md). Where older sections below describe
+> `utils/categories.js` as a hand-written list, or Historical maps as premium,
+> that document is authoritative.
+
 ```
 meridian-react/
 ├── index.html              Vite entry (mounts <div id="root">)
@@ -23,7 +32,7 @@ meridian-react/
 │   ├── components/               Reusable, single-responsibility UI
 │   │   ├── Header.jsx, Button.jsx, ProgressBar.jsx, ScoreDisplay.jsx
 │   │   ├── FlagDisplay.jsx, AnswerOption.jsx, AnswerInput.jsx
-│   │   ├── CategoryCard.jsx, CategoryGrid.jsx
+│   │   ├── CategoryCard.jsx, CategoryGrid.jsx   (picker, generated from the category tree)
 │   │   └── GameModeSelector.jsx, DifficultySelector.jsx, TimerToggle.jsx
 │   │   └── MissedFlagsList.jsx
 │   ├── hooks/
@@ -35,10 +44,13 @@ meridian-react/
 │   ├── utils/                          ← the portable / framework-agnostic layer
 │   │   ├── gameLogic.js                  Pure reducer: the entire game engine
 │   │   ├── countryUtils.js                Answer matching, aliases, MC options
-│   │   ├── categories.js                   Continent/region/world definitions
+│   │   ├── categories.js                   Registry built from data/categoryTree.json (generic)
+│   │   ├── categoryStats.js                 Records + tree → per-category profile sections
 │   │   ├── shuffle.js                       Fisher-Yates
 │   │   └── storage.js                        Guest stats (localStorage)
 │   ├── data/
+│   │   ├── categoryTree.json               THE category definitions (groups → categories)
+│   │   ├── datasets/                        Flag sets for the historical maps
 │   │   ├── countries.json                 197-entry dataset (unchanged)
 │   │   └── countries.js                     Loader + getCountryById()
 │   └── styles/
@@ -472,6 +484,12 @@ under the original README's "Environment variables" section is
 unchanged.
 
 ## Paid categories
+
+> **Status.** The premium system below is intact and unchanged, but currently
+> **no category uses it**: all categories, historical maps included, are
+> `type: "default"` (free) in `src/data/categoryTree.json`. A category becomes
+> paid again by changing its `type` there; see
+> [`docs/CATEGORIES.md`](docs/CATEGORIES.md#free-vs-paid).
 
 The first paid category, **World 1914**, sits alongside the free World
 category and is unlocked with a real one-time Stripe payment. Same rule
@@ -1131,6 +1149,12 @@ contested transitions right at the snapshot date:
 
 ### The premium/free control (Historical maps and World 1914 alike)
 
+> **Update.** The frontend no longer decides free/paid per backend row: it is
+> the `type` of each category in the tree (all `default` right now). The
+> backend's `premium` flag and admin Game Categories panel still control price
+> and ownership for any category the tree marks `paid`. The text below
+> describes the backend mechanism, which is unchanged.
+
 Every category in the Historical tab — and World 1914, which predates
 it — is now backed by the exact same `paid_categories` table and
 `userHasAccess()` function documented in "Paid categories" above.
@@ -1185,6 +1209,17 @@ Multiplayer, all four difficulties, and all four game-length modes work
 identically for a Historical category as for any other — verified by
 the same SSR/logic test suite already covering those paths, since
 nothing about them needed to change.
+
+## Tests
+
+```bash
+npm test        # unit + component tests (vitest, jsdom)
+npm run build   # production build
+VITE_BASE_PATH=/<repo>/ npm run build   # GitHub Pages-style build
+```
+
+The deploy workflow runs `npm test` before building. The section below records
+the testing done for the original React migration.
 
 ## Testing performed for this migration
 
